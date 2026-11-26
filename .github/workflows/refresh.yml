@@ -1,11 +1,15 @@
-# Rebuild the GitHub Pages site (branch main, folder /docs) every hour.
+# Rebuild the GitHub Pages site (branch main, folder /docs) every 30 minutes.
 # One failed source does not fail the job: build.py keeps that channel's previous items.
 name: refresh-feed
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17,47 * * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/refresh.yml'
 
 permissions:
   contents: write
@@ -17,6 +21,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
