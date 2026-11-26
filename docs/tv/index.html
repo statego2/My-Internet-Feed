@@ -118,7 +118,7 @@ html.playing #feed{display:none;}
 <main id="grid"></main>
 </div>
 <div id="stage" class="off">
-  <iframe id="yt" title="YouTube" tabindex="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen webkitallowfullscreen scrolling="no"></iframe>
+  <iframe id="yt" title="YouTube" tabindex="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen webkitallowfullscreen mozallowfullscreen scrolling="no"></iframe>
   <button type="button" id="revealTools" aria-label="Επιλογές αναπαραγωγής">⋯</button>
   <div class="player-tools" id="playerTools">
     <button type="button" id="playerControls">Χειριστήρια / CC</button>
@@ -189,7 +189,8 @@ function cardHtml(v) {
   var ch = chById[v.chid] || {};
   var mark = ch.sos ? '<span class="sos">SOS</span>' : '';
   var dur = duration(v);
-  return '<a class="card" href="' + esc(videoUrl(v)) + '">' +
+  var embed = v.platform === 'rumble' ? safeRumbleEmbed(v.embed_url) : '';
+  return '<a class="card" href="' + esc(videoUrl(v)) + '"' + (embed ? ' data-embed="' + esc(embed) + '"' : '') + '>' +
     '<div class="thumb"><img loading="lazy" alt="" data-src="' + esc(thumb(v)) + '">' + mark +
     (dur ? '<span class="duration">' + esc(dur) + '</span>' : '') + '</div>' +
     '<div class="bd"><p class="ti">' + esc(v.title) + '</p>' +
@@ -525,6 +526,22 @@ var frame = document.getElementById('yt');
 var toolbar = document.getElementById('playerTools');
 var fullscreenButton = document.getElementById('playerFullscreen');
 function stageOpen() { return stage && stage.className.indexOf('off') === -1; }
+function safeRumbleEmbed(url) {
+  var s = String(url || '');
+  return /^https:\/\/rumble\.com\/embed\/[A-Za-z0-9._-]+\/?(?:\?[^#\s]*)?$/.test(s) ? s : '';
+}
+function playerSource(card) {
+  var href=card.getAttribute('href') || card.href || '';
+  if(href.indexOf('https://www.youtube.com/watch')===0) {
+    var id=ytIdFrom(href);
+    if(id) return {name:'YouTube',url:'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0&controls=1&fs=1&disablekb=0&playsinline=1'};
+  }
+  var embed=safeRumbleEmbed(card.getAttribute('data-embed'));
+  if(embed && /^https:\/\/rumble\.com\//.test(href)) {
+    return {name:'Rumble',url:embed};
+  }
+  return null;
+}
 function ytIdFrom(href) {
   var match = String(href || '').match(/[?&]v=([A-Za-z0-9_-]{11})(?:[&#]|$)/);
   return match ? match[1] : '';
@@ -556,16 +573,18 @@ function focusNative() {
   try { frame.contentWindow.focus(); } catch(e) {}
 }
 function openPlayer(card) {
-  var id = ytIdFrom(card.getAttribute('href') || card.href);
-  if (!id) return;
+  var source = playerSource(card);
+  if (!source) return;
   returnCard = card;
   returnScroll = window.pageYOffset || document.documentElement.scrollTop || 0;
   if(thumbTimer) clearTimeout(thumbTimer);
   thumbPending=false;thumbTimer=0;
-  warmPlayer();
+  if(source.name==='YouTube') warmPlayer();
   document.documentElement.className = 'open playing';
   stage.className = '';
-  frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&controls=1&fs=1&disablekb=0&playsinline=1';
+  frame.title=source.name;
+  document.getElementById('playerExternal').textContent=source.name;
+  frame.src=source.url;
   try { history.pushState({mifTVPlayer:true}, '', location.href); playerHistory = true; } catch(e) { playerHistory = false; }
   hideTools();
   document.getElementById('revealTools').focus();
@@ -605,7 +624,7 @@ document.getElementById('grid').addEventListener('click', function (e) {
   var a = e.target;
   while (a && a.tagName !== 'A') a = a.parentNode;
   if (!a || !a.getAttribute) return;
-  if (String(a.getAttribute('href') || '').indexOf('https://www.youtube.com/watch') === 0) {
+  if (playerSource(a)) {
     e.preventDefault();
     openPlayer(a);
   }
@@ -666,7 +685,7 @@ document.addEventListener('keydown', function (e) {
     if (!card || !card.getAttribute) return;
     if (card.tagName === 'BUTTON') { e.preventDefault(); card.click(); return; }
     var href = card.getAttribute('href') || '';
-    if (href.indexOf('https://www.youtube.com/watch') === 0) {
+    if (playerSource(card)) {
       e.preventDefault();
       openPlayer(card);
     } else if (card.href) {

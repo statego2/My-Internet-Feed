@@ -194,6 +194,82 @@ def fetch_rumble(ch, days, per):
     return out[:per]
 
 
+# Resolve Rumble's official embed URL on the build machine, not on the TV.
+def valid_rumble_embed(url):
+    if not isinstance(url, str):
+        return ''
+    url = html.unescape(url).strip()
+    p = urllib.parse.urlsplit(url)
+    if p.scheme == 'https' and p.netloc == 'rumble.com' and not p.fragment and re.fullmatch(r'/embed/[A-Za-z0-9._-]+/?', p.path):
+        return url
+    return ''
+
+
+def extract_rumble_embed(markup):
+    # Prefer the video page's canonical embedUrl metadata; don't guess IDs.
+    markup = html.unescape(markup or '').replace(r'\/', '/')
+    for pattern in (
+        r'["\x27]embedUrl["\x27]\s*:\s*["\x27]([^"\x27]+)',
+        r'<iframe\b[^>]*\bsrc\s*=\s*["\x27](https://rumble\.com/embed/[^"\x27]+)',
+    ):
+        for match in re.finditer(pattern, markup, re.I):
+            url = valid_rumble_embed(match.group(1))
+            if url:
+                return url
+    return ''
+
+
+def enrich_rumble_embeds(videos, published):
+    previous = {v.get('id'): valid_rumble_embed(v.get('embed_url')) for v in published.get('videos', []) if v.get('platform') == 'rumble'}
+    pending = []
+    for v in videos:
+        if v.get('platform') != 'rumble':
+            continue
+        url = valid_rumble_embed(v.get('embed_url')) or previous.get(v.get('id'))
+        if url:
+            v['embed_url'] = url
+        else:
+            pending.append(v)
+    if not pending:
+        return
+    # The endpoint returns official iframe markup. Keep failures isolated.
+    def resolve(v):
+        endpoint = 'https://rumble.com/api/Media/oembed.json?' + urllib.parse.urlencode({'url': v['url']})
+        _, body = http(endpoint, timeout=8, retries=0)
+        try:
+            result = json.loads(body)
+            url = extract_rumble_embed(result.get('html', ''))
+            if url:
+                v['embed_url'] = url
+        except Exception:
+            pass
+    with ThreadPoolExecutor(3) as ex:
+        list(ex.map(resolve, pending))
+    pending = [v for v in pending if not v.get('embed_url')]
+    if not pending:
+        return
+    # Rumble may block HTTP requests. Try the same browser used by the feed.
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True, args=['--no-sandbox'])
+            try:
+                page = browser.new_page(user_agent=UA)
+                for v in pending:
+                    try:
+                        page.goto(v['url'], wait_until='domcontentloaded', timeout=15000)
+                        url = extract_rumble_embed(page.content())
+                        if url:
+                            v['embed_url'] = url
+                    except Exception:
+                        pass
+            finally:
+                browser.close()
+    except Exception as e:
+        print('Rumble embed lookup unavailable:', e)
+    print('Rumble embeds resolved:', sum(bool(v.get('embed_url')) for v in videos if v.get('platform') == 'rumble'))
+
+
 # ---------------- build ----------------
 def published_snapshot():
     """Feed currently served from docs/. Present on a fresh CI checkout; data/ is not."""
@@ -250,6 +326,7 @@ def collect(args):
                 stale.append(ch['id'])
             continue
         videos += v
+    enrich_rumble_embeds(videos, published)
     json.dump(cache, open(os.path.join(DATA, 'cache.json'), 'w'))
     gen = datetime.now(timezone.utc)
     data = dict(generated=gen.strftime('%Y-%m-%dT%H:%M:%SZ'), days=args.days,
@@ -319,7 +396,7 @@ def render_tv(blob, fonts):
         'videos': [],
     }
     for v in data.get('videos', []):
-        item = {k: v[k] for k in ('id', 'title', 'ch', 'chid', 'platform', 'date', 'dur', 'live', 'url', 'thumb') if k in v}
+        item = {k: v[k] for k in ('id', 'title', 'ch', 'chid', 'platform', 'date', 'dur', 'live', 'url', 'thumb', 'embed_url') if k in v}
         if v.get('platform') == 'youtube' and re.fullmatch(r'yt:[A-Za-z0-9_-]{11}', v.get('id', '')):
             item.pop('url', None)
             if v.get('thumb') == 'https://i.ytimg.com/vi/' + v['id'][3:] + '/mqdefault.jpg':
