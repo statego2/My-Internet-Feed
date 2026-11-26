@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#161512">
+<title>__TITLE__</title>
+<style>
+/*__FONTS__*/
+html,body{margin:0;background:#161512;color:#F6F6F3;
+  font-family:"Source Sans 3","Source Sans Pro",Helvetica,Arial,sans-serif;}
+header{display:flex;align-items:baseline;justify-content:space-between;
+  padding:36px 48px 8px;}
+h1{margin:0;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;
+  font-weight:400;font-size:42px;letter-spacing:-0.02em;}
+.gen{color:#9A958C;font-size:20px;letter-spacing:0.08em;text-transform:uppercase;}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);grid-gap:28px;
+  padding:28px 48px 64px;}
+a.card{display:block;color:inherit;text-decoration:none;background:#1C1A16;
+  border-radius:2px;outline:none;}
+a.card:focus{outline:5px solid #C4A35A;outline-offset:6px;transform:scale(1.03);}
+.thumb{position:relative;width:100%;padding-top:56.25%;background:#12110F;overflow:hidden;}
+.thumb img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;}
+.sos{position:absolute;left:12px;top:12px;background:#1B4F9C;color:#C4A35A;
+  font-size:16px;letter-spacing:0.14em;padding:4px 10px;}
+.bd{padding:16px 18px 20px;}
+.ti{margin:0 0 10px;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;
+  font-size:32px;font-weight:400;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.meta{margin:0;color:#9A958C;font-size:22px;line-height:1.35;}
+.meta b{color:#F6F6F3;font-weight:600;}
+.empty{margin:0;padding:48px;color:#9A958C;font-size:28px;}
+@media (max-width:1600px){
+  .grid{grid-template-columns:repeat(3,1fr);grid-gap:22px;padding:22px 32px 48px;}
+  header{padding:28px 32px 4px;}
+  h1{font-size:36px;}
+  .ti{font-size:26px;}
+  .meta{font-size:20px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>__TITLE__</h1>
+  <div class="gen" id="gen"></div>
+</header>
+<main class="grid" id="grid"></main>
+<script id="d" type="application/json">/*__DATA__*/null</script>
+<script>
+var D = JSON.parse(document.getElementById('d').textContent.replace(/^\/\*__DATA__\*\//, ''));
+if (!D || !D.videos) D = {videos: [], channels: [], generated_label: ''};
+
+var chById = {};
+var channels = D.channels || [];
+for (var i = 0; i < channels.length; i++) chById[channels[i].id] = channels[i];
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c];
+  });
+}
+function videoUrl(v) {
+  if (v.platform === 'youtube') {
+    var id = String(v.id || '');
+    if (id.indexOf('yt:') === 0) id = id.substring(3);
+    return 'https://www.youtube.com/watch?v=' + id;
+  }
+  return String(v.url || '');
+}
+function age(iso) {
+  var t = new Date(iso).getTime();
+  if (isNaN(t)) return '';
+  var mins = Math.round((Date.now() - t) / 60000);
+  if (mins < 1) return 'μόλις τώρα';
+  if (mins < 60) return 'πριν από ' + mins + (mins === 1 ? ' λεπτό' : ' λεπτά');
+  var hrs = Math.round(mins / 60);
+  if (hrs < 24) return 'πριν από ' + hrs + (hrs === 1 ? ' ώρα' : ' ώρες');
+  var days = Math.round(hrs / 24);
+  return 'πριν από ' + days + (days === 1 ? ' ημέρα' : ' ημέρες');
+}
+function thumb(v) {
+  return String(v.thumb || '').replace('/mqdefault.jpg', '/hqdefault.jpg');
+}
+
+var list = (D.videos || []).slice();
+list.sort(function (a, b) {
+  var asos = (chById[a.chid] && chById[a.chid].sos) ? 1 : 0;
+  var bsos = (chById[b.chid] && chById[b.chid].sos) ? 1 : 0;
+  if (asos !== bsos) return bsos - asos;
+  var ad = String(a.date || ''), bd = String(b.date || '');
+  if (ad < bd) return 1;
+  if (ad > bd) return -1;
+  return 0;
+});
+
+var html = '';
+for (var n = 0; n < list.length; n++) {
+  var v = list[n];
+  var ch = chById[v.chid] || {};
+  var mark = ch.sos ? '<span class="sos">SOS</span>' : '';
+  html += '<a class="card" href="' + esc(videoUrl(v)) + '">' +
+    '<div class="thumb">' + mark + '<img alt="" src="' + esc(thumb(v)) + '"></div>' +
+    '<div class="bd"><p class="ti">' + esc(v.title) + '</p>' +
+    '<p class="meta"><b>' + esc(v.ch || ch.title || '') + '</b> · ' + esc(age(v.date)) + '</p></div></a>';
+}
+document.getElementById('grid').innerHTML = html || '<p class="empty">Δεν υπάρχουν βίντεο.</p>';
+document.getElementById('gen').textContent = D.generated_label || '';
+
+function cards() {
+  return document.querySelectorAll('a.card');
+}
+function move(dir) {
+  var all = cards();
+  var cur = document.activeElement;
+  if (!cur || !cur.className || cur.className.indexOf('card') === -1) {
+    if (all.length) all[0].focus();
+    return;
+  }
+  var r = cur.getBoundingClientRect();
+  var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  var best = null, bestD = 1e15;
+  for (var i = 0; i < all.length; i++) {
+    var el = all[i];
+    if (el === cur) continue;
+    var b = el.getBoundingClientRect();
+    var dx = (b.left + b.width / 2) - cx;
+    var dy = (b.top + b.height / 2) - cy;
+    if (dir === 37 && dx >= -4) continue;
+    if (dir === 39 && dx <= 4) continue;
+    if (dir === 38 && dy >= -4) continue;
+    if (dir === 40 && dy <= 4) continue;
+    var primary = (dir === 37 || dir === 39) ? Math.abs(dx) : Math.abs(dy);
+    var secondary = (dir === 37 || dir === 39) ? Math.abs(dy) : Math.abs(dx);
+    var dist = primary + secondary * 1.5;
+    if (dist < bestD) { bestD = dist; best = el; }
+  }
+  if (!best) return;
+  best.focus();
+  try { best.scrollIntoView({block: 'center', inline: 'nearest'}); }
+  catch (err) { best.scrollIntoView(true); }
+}
+document.addEventListener('keydown', function (e) {
+  var code = e.keyCode || e.which || 0;
+  if (!code) {
+    if (e.key === 'ArrowLeft') code = 37;
+    else if (e.key === 'ArrowUp') code = 38;
+    else if (e.key === 'ArrowRight') code = 39;
+    else if (e.key === 'ArrowDown') code = 40;
+    else if (e.key === 'Enter') code = 13;
+  }
+  if (code >= 37 && code <= 40) {
+    e.preventDefault();
+    move(code);
+    return;
+  }
+  if (code === 13) {
+    var cur = document.activeElement;
+    if (cur && cur.href && cur.className && cur.className.indexOf('card') !== -1) {
+      window.location.href = cur.href;
+    }
+  }
+});
+var first = cards()[0];
+if (first) first.focus();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""My Internet Feed - builds the static site in ./docs/ (index.html + data.json).
+"""My Internet Feed - builds the static site in ./docs/ (index.html + data.json + tv/index.html).
 
   python3 build.py                 # fetch everything fresh, rebuild docs/
   python3 build.py --offline       # rebuild HTML from data/last.json or docs/data.json
@@ -305,6 +305,18 @@ def render(data):
     }
     open(os.path.join(SITE, 'manifest.webmanifest'), 'w', encoding='utf8').write(
         json.dumps(manifest, ensure_ascii=False, indent=2) + '\n')
+    render_tv(blob, fonts)
+
+
+def render_tv(blob, fonts):
+    """Couch view for a webOS browser. Same embedded feed as docs/index.html."""
+    tv = os.path.join(SITE, 'tv')
+    os.makedirs(tv, exist_ok=True)
+    tpl = open(os.path.join(HERE, 'template_tv.html'), encoding='utf8').read()
+    out = (tpl.replace('__TITLE__', TITLE)
+              .replace('/*__DATA__*/null', blob)
+              .replace('/*__FONTS__*/', fonts))
+    open(os.path.join(tv, 'index.html'), 'w', encoding='utf8').write(out)
 
 
 if __name__ == '__main__':
@@ -323,3 +335,4 @@ if __name__ == '__main__':
     render(d)
     print(f"channels={len(d['channels'])} videos={len(d['videos'])} stale={d['stale']} errors={d['errors']}")
     print('built', os.path.join(SITE, 'index.html'))
+    print('built', os.path.join(SITE, 'tv', 'index.html'))
