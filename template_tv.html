@@ -23,28 +23,28 @@ header{display:flex;align-items:center;justify-content:space-between;
 .wordmark{margin-left:18px;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;
   font-weight:400;font-size:42px;letter-spacing:-0.02em;}
 .gen{color:#9A958C;font-size:20px;letter-spacing:0.08em;text-transform:uppercase;}
-.row{margin:8px 0 18px;}
-.row h2{margin:0 48px 12px;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;
-  font-weight:400;font-size:32px;}
-.strip{position:relative;white-space:nowrap;overflow-x:hidden;padding:8px 48px 20px;}
-a.card{display:inline-block;width:420px;margin:0 22px 0 0;vertical-align:top;white-space:normal;
-  color:inherit;text-decoration:none;background:#1C1A16;border-radius:2px;outline:none;}
-a.card:focus{outline:5px solid #C4A35A;outline-offset:6px;transform:scale(1.03);}
+.row{margin:12px 0 26px;}
+.row h2{margin:0 0 14px;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;font-weight:400;font-size:30px;}
+#categories{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;padding:12px 48px;background:#161512;border-bottom:1px solid #39352d;}
+#categories button{font:inherit;font-size:22px;color:#F6F6F3;background:#25221d;border:1px solid #39352d;border-radius:20px;padding:8px 17px;margin:4px 8px 4px 0;cursor:pointer;}
+#categories button.active{background:#C4A35A;color:#161512;border-color:#C4A35A;}
+#categories button:focus,.player-tools button:focus{outline:3px solid #F6F6F3;outline-offset:3px;}
+#grid{padding:16px 48px 48px;}
+.video-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-gap:22px;}
+a.card{display:block;min-width:0;color:inherit;text-decoration:none;background:#1C1A16;border-radius:6px;outline:none;overflow:hidden;}
+a.card:focus{outline:4px solid #C4A35A;outline-offset:4px;}
 .thumb{position:relative;width:100%;padding-top:56.25%;background:#12110F;overflow:hidden;}
 .thumb img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;}
-.sos{position:absolute;left:12px;top:12px;z-index:1;background:#1B4F9C;color:#C4A35A;
-  font-size:16px;letter-spacing:0.14em;padding:4px 10px;}
-.bd{padding:16px 18px 20px;}
-.ti{margin:0 0 10px;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;
-  font-size:32px;font-weight:400;line-height:1.25;
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
-.meta{margin:0;color:#9A958C;font-size:22px;line-height:1.35;}
+.sos{position:absolute;left:10px;top:10px;z-index:1;background:#1B4F9C;color:#C4A35A;font-size:16px;letter-spacing:0.12em;padding:4px 9px;}
+.duration{position:absolute;right:8px;bottom:8px;background:#111;color:white;padding:3px 7px;font-size:16px;border-radius:3px;}
+.bd{padding:12px 15px 16px;}
+.ti{margin:0 0 7px;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;font-size:26px;font-weight:400;line-height:1.25;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.meta{margin:0;color:#9A958C;font-size:19px;line-height:1.35;}
 .meta b{color:#F6F6F3;font-weight:600;}
-.empty{margin:0;padding:48px;color:#9A958C;font-size:28px;}
+.empty{margin:0;padding:28px 0;color:#9A958C;font-size:26px;}
 html.locked #feed{display:none;}
 html.open #gate{display:none;}
-#gate{position:fixed;left:0;top:0;right:0;bottom:0;background:#161512;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;}
+#gate{position:fixed;left:0;top:0;right:0;bottom:0;background:#161512;display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .pin{margin:0 0 18px;font-size:28px;letter-spacing:0.28em;}
 .dots{margin:0 0 28px;min-height:36px;font-size:32px;letter-spacing:0.45em;color:#C4A35A;}
 #gate.bad .dots{color:#C4473A;}
@@ -52,25 +52,36 @@ html.open #gate{display:none;}
 .keys button{height:108px;font:inherit;font-size:40px;color:#F6F6F3;background:#1C1A16;
   border:0;border-radius:2px;cursor:pointer;}
 .keys button:focus{outline:5px solid #C4A35A;outline-offset:4px;transform:scale(1.04);}
-#stage{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:30;}
+html.playing,html.playing body{overflow:hidden!important;overscroll-behavior:none;}
+html.playing::-webkit-scrollbar,html.playing body::-webkit-scrollbar{display:none;width:0;height:0;}
+html.playing #feed{visibility:hidden;}
+#stage{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:30;overflow:hidden;}
 #stage.off{display:none;}
-#stage iframe{position:absolute;left:0;top:0;width:100%;height:100%;border:0;}
-#play{position:absolute;left:50%;top:50%;width:180px;height:180px;margin:-90px 0 0 -90px;
-  font-size:72px;line-height:180px;text-align:center;background:#1B4F9C;color:#C4A35A;
-  border:0;border-radius:8px;z-index:2;}
-#play.off{display:none;}
-#play:focus{outline:5px solid #C4A35A;outline-offset:6px;}
+#stage iframe{position:absolute;display:block;left:0;top:0;width:100%;height:100%;border:0;}
+.player-tools{position:absolute;right:14px;top:12px;z-index:2;display:flex;padding:6px;background:rgba(0,0,0,.85);border-radius:8px;opacity:0;pointer-events:none;}
+.player-tools.visible,.player-tools:hover{opacity:1;pointer-events:auto;}
+.player-tools button{font:inherit;font-size:18px;background:#25221d;color:#fff;border:1px solid #777;border-radius:5px;padding:9px 13px;margin:0 3px;cursor:pointer;}
+#revealTools{position:absolute;right:12px;top:8px;z-index:1;font:inherit;font-size:20px;background:rgba(0,0,0,.7);color:white;border:0;border-radius:4px;padding:6px 13px;cursor:pointer;}
+#revealTools:focus{outline:3px solid white;}
 @media (max-width:1600px){
-  header{padding:22px 32px 4px;}
-  .mark{width:60px;height:60px;}
-  .wordmark{font-size:36px;}
-  .row h2{margin-left:32px;margin-right:32px;font-size:28px;}
-  .strip{padding:8px 32px 16px;}
-  a.card{width:360px;}
-  .ti{font-size:26px;}
-  .meta{font-size:20px;}
-  .keys{grid-template-columns:repeat(3,112px);grid-gap:12px;}
-  .keys button{height:88px;font-size:34px;}
+ header{padding:22px 32px 4px;}
+ .mark{width:60px;height:60px;}
+ .wordmark{font-size:36px;}
+ #categories{padding:8px 32px;}
+ #categories button{font-size:19px;padding:7px 13px;}
+ #grid{padding:16px 32px 36px;}
+ .video-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-gap:18px;}
+ .ti{font-size:24px;}
+ .meta{font-size:18px;}
+ .keys{grid-template-columns:repeat(3,112px);grid-gap:12px;}
+ .keys button{height:88px;font-size:34px;}
+}
+@media (max-width:850px){
+ .video-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+ #categories{padding:8px 16px;}
+ #grid{padding:16px;}
+ .ti{font-size:20px;}
+ .meta{font-size:16px;}
 }
 </style>
 </head>
@@ -98,11 +109,18 @@ html.open #gate{display:none;}
   <h1 class="brand">__MARK__<span class="wordmark">__TITLE__</span></h1>
   <div class="gen" id="gen"></div>
 </header>
+<nav id="categories" aria-label="Κατηγορίες"></nav>
 <main id="grid"></main>
 </div>
 <div id="stage" class="off">
-  <iframe id="yt" title="YouTube" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
-  <button type="button" id="play" aria-label="Αναπαραγωγή">▶</button>
+  <iframe id="yt" title="YouTube" tabindex="0" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen webkitallowfullscreen scrolling="no"></iframe>
+  <button type="button" id="revealTools" aria-label="Επιλογές αναπαραγωγής">⋯</button>
+  <div class="player-tools" id="playerTools">
+    <button type="button" id="playerControls">Χειριστήρια / CC</button>
+    <button type="button" id="playerFullscreen">Fullscreen</button>
+    <button type="button" id="playerExternal">YouTube</button>
+    <button type="button" id="playerClose">Πίσω</button>
+  </div>
 </div>
 <script id="d" type="application/json">/*__DATA__*/null</script>
 <script>
@@ -150,31 +168,78 @@ function rowSort(a, b) {
   if (ad > bd) return -1;
   return 0;
 }
+function duration(v) {
+  if (v.live) return 'LIVE';
+  var n = Math.floor(Number(v.dur) || 0);
+  if (n <= 0) return '';
+  var h = Math.floor(n / 3600), m = Math.floor(n / 60) % 60, sec = n % 60;
+  return (h ? h + ':' + (m < 10 ? '0' : '') : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+}
 function cardHtml(v) {
   var ch = chById[v.chid] || {};
   var mark = ch.sos ? '<span class="sos">SOS</span>' : '';
+  var dur = duration(v);
   return '<a class="card" href="' + esc(videoUrl(v)) + '">' +
-    '<div class="thumb"><img alt="" src="' + esc(thumb(v)) + '">' + mark + '</div>' +
+    '<div class="thumb"><img loading="lazy" alt="" src="' + esc(thumb(v)) + '">' + mark +
+    (dur ? '<span class="duration">' + esc(dur) + '</span>' : '') + '</div>' +
     '<div class="bd"><p class="ti">' + esc(v.title) + '</p>' +
     '<p class="meta"><b>' + esc(v.ch || ch.title || '') + '</b> · ' + esc(age(v.date)) + '</p></div></a>';
 }
 var groups = D.groups || [];
-var html = '';
 var videos = D.videos || [];
-for (var g = 0; g < groups.length; g++) {
-  var gid = groups[g][0], glabel = groups[g][1];
-  var bucket = [];
-  for (var n = 0; n < videos.length; n++) {
-    var chg = chById[videos[n].chid] || {};
-    if (chg.group === gid) bucket.push(videos[n]);
-  }
-  if (!bucket.length) continue;
-  bucket.sort(rowSort);
-  html += '<section class="row"><h2>' + esc(glabel) + '</h2><div class="strip">';
-  for (var k = 0; k < bucket.length; k++) html += cardHtml(bucket[k]);
-  html += '</div></section>';
+var selectedGroup = 'all';
+var categoryBar = document.getElementById('categories');
+var options = [['all','Όλα']].concat(groups);
+var navHtml = '';
+for (var g = 0; g < options.length; g++) {
+  var label = String(options[g][1]).split(' &')[0].split(',')[0];
+  navHtml += '<button type="button" data-group="' + esc(options[g][0]) + '">' + esc(label) + '</button>';
 }
-document.getElementById('grid').innerHTML = html || '<p class="empty">Δεν υπάρχουν βίντεο.</p>';
+categoryBar.innerHTML = navHtml;
+function categoryButtons() { return categoryBar.querySelectorAll('button'); }
+function activeCategory() { return categoryBar.querySelector('.active'); }
+function renderFeed() {
+  var buttons = categoryButtons();
+  for (var i = 0; i < buttons.length; i++) {
+    var active = buttons[i].getAttribute('data-group') === selectedGroup;
+    buttons[i].className = active ? 'active' : '';
+    buttons[i].setAttribute('aria-pressed', active ? 'true' : 'false');
+  }
+  var html = '', known = {};
+  for (var g = 0; g < groups.length; g++) {
+    var gid = groups[g][0];
+    known[gid] = true;
+    if (selectedGroup !== 'all' && selectedGroup !== gid) continue;
+    var bucket = [];
+    for (var n = 0; n < videos.length; n++) {
+      var ch = chById[videos[n].chid] || {};
+      if (ch.group === gid) bucket.push(videos[n]);
+    }
+    if (!bucket.length) continue;
+    bucket.sort(rowSort);
+    html += '<section class="row"><h2>' + esc(groups[g][1]) + '</h2><div class="video-grid">';
+    for (var k = 0; k < bucket.length; k++) html += cardHtml(bucket[k]);
+    html += '</div></section>';
+  }
+  if (selectedGroup === 'all') {
+    var other = videos.filter(function(v) { return !known[(chById[v.chid] || {}).group]; }).sort(rowSort);
+    if (other.length) {
+      html += '<section class="row"><h2>Άλλα</h2><div class="video-grid">';
+      for (var j = 0; j < other.length; j++) html += cardHtml(other[j]);
+      html += '</div></section>';
+    }
+  }
+  document.getElementById('grid').innerHTML = html || '<p class="empty">Δεν υπάρχουν βίντεο.</p>';
+}
+categoryBar.addEventListener('click', function(e) {
+  var t = e.target;
+  if (!t || !t.getAttribute || t.getAttribute('data-group') === null) return;
+  selectedGroup = t.getAttribute('data-group');
+  renderFeed();
+  window.scrollTo(0,0);
+  t.focus();
+});
+renderFeed();
 document.getElementById('gen').textContent = D.generated_label || '';
 
 var PIN_SHA = '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0';
@@ -260,7 +325,7 @@ function utf8bytes(text) {
   }
   return new Uint8Array(out);
 }
-function isOpen() { return document.documentElement.className === 'open'; }
+function isOpen() { return document.documentElement.classList.contains('open'); }
 function paintPin() {
   var s = '';
   for (var i = 0; i < 4; i++) s += i < pin.length ? '●' : '·';
@@ -286,7 +351,7 @@ function submitPin() {
     if (hex === PIN_SHA) {
       try { localStorage.setItem('mif_tv_unlocked', '1'); } catch (e) {}
       document.documentElement.className = 'open';
-      var first = cards()[0];
+      var first = activeCategory();
       if (first) first.focus();
     } else pinFail();
   });
@@ -337,106 +402,116 @@ function move(all, dir) {
 }
 function focusCard(el) {
   el.focus();
-  var strip = el.parentNode;
-  if (strip) {
-    var left = el.offsetLeft - 48;
-    if (left < 0) left = 0;
-    strip.scrollLeft = left;
-  }
-  var top = el.getBoundingClientRect().top;
+  var r = el.getBoundingClientRect();
+  var top = categoryBar.getBoundingClientRect().bottom + 12;
   var y = window.pageYOffset || document.documentElement.scrollTop || 0;
-  if (top < 110 || top > window.innerHeight - 180) window.scrollTo(0, y + top - 150);
+  if (r.top < top) window.scrollTo(0, Math.max(0, y + r.top - top));
+  else if (r.bottom > window.innerHeight - 14) window.scrollTo(0, y + r.bottom - window.innerHeight + 14);
 }
 function moveCard(dir) {
-  var cur = document.activeElement;
-  if (!cur || !cur.className || cur.className.indexOf('card') === -1) {
-    var all = cards();
-    if (all.length) focusCard(all[0]);
+  var cur = document.activeElement, all = cards(), buttons = categoryButtons();
+  var inNav = cur && cur.parentNode === categoryBar;
+  if (inNav) {
+    if (dir === 37 || dir === 39) {
+      var i = Array.prototype.indexOf.call(buttons, cur);
+      var next = buttons[i + (dir === 39 ? 1 : -1)];
+      if (next) next.focus();
+    } else if (dir === 40 && all.length) focusCard(all[0]);
     return;
   }
-  var strip = cur.parentNode;
-  var row = strip.querySelectorAll('a.card');
-  var idx = -1;
-  for (var i = 0; i < row.length; i++) if (row[i] === cur) idx = i;
-  if (dir === 37 || dir === 39) {
-    var side = row[idx + (dir === 39 ? 1 : -1)];
-    if (side) focusCard(side);
+  if (!cur || !cur.classList || !cur.classList.contains('card')) {
+    if (activeCategory()) activeCategory().focus();
     return;
   }
-  var section = strip.parentNode;
-  var dest = dir === 38 ? section.previousElementSibling : section.nextElementSibling;
-  if (!dest || !dest.querySelector) return;
-  var nextStrip = dest.querySelector('.strip');
-  if (!nextStrip) return;
-  var others = nextStrip.querySelectorAll('a.card');
-  if (!others.length) return;
-  var cx = cur.offsetLeft + cur.offsetWidth / 2;
-  var best = others[0], bestD = 1e15;
-  for (var j = 0; j < others.length; j++) {
-    var dx = Math.abs((others[j].offsetLeft + others[j].offsetWidth / 2) - cx);
-    if (dx < bestD) { bestD = dx; best = others[j]; }
+  var r = cur.getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height/2;
+  var best = null, score = Infinity;
+  for (var j = 0; j < all.length; j++) {
+    var el = all[j];
+    if (el === cur) continue;
+    var b = el.getBoundingClientRect(), dx = b.left + b.width/2 - cx, dy = b.top + b.height/2 - cy;
+    if ((dir === 37 && dx >= -4) || (dir === 39 && dx <= 4) ||
+        (dir === 38 && dy >= -4) || (dir === 40 && dy <= 4)) continue;
+    if ((dir === 37 || dir === 39) && Math.abs(dy) > r.height/2) continue;
+    var d = dir === 37 || dir === 39 ? Math.abs(dx) + 3*Math.abs(dy) : Math.abs(dy) + 2*Math.abs(dx);
+    if (d < score) { score = d; best = el; }
   }
-  focusCard(best);
+  if (best) focusCard(best);
+  else if (dir === 38 && activeCategory()) { window.scrollTo(0,0); activeCategory().focus(); }
 }
-var returnCard = null;
-var ytPlaying = false;
-function stageOpen() {
-  return document.getElementById('stage').className.indexOf('off') === -1;
-}
+var returnCard = null, playerHistory = false;
+var stage = document.getElementById('stage');
+var frame = document.getElementById('yt');
+var toolbar = document.getElementById('playerTools');
+var fullscreenButton = document.getElementById('playerFullscreen');
+function stageOpen() { return !stage.classList.contains('off'); }
 function ytIdFrom(href) {
-  var i = String(href || '').indexOf('v=');
-  if (i < 0) return '';
-  var id = String(href).substring(i + 2);
-  var amp = id.indexOf('&');
-  if (amp >= 0) id = id.substring(0, amp);
-  return id;
+  var match = String(href || '').match(/[?&]v=([A-Za-z0-9_-]{11})(?:[&#]|$)/);
+  return match ? match[1] : '';
 }
-function ytCmd(func) {
-  var frame = document.getElementById('yt');
-  if (!frame || !frame.contentWindow) return;
-  try {
-    frame.contentWindow.postMessage(JSON.stringify({event: 'command', func: func, args: []}), '*');
-  } catch (err) {}
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement || null;
+}
+function requestFullscreen() {
+  var fn = stage.requestFullscreen || stage.webkitRequestFullscreen || stage.webkitRequestFullScreen;
+  if (!fn) return;
+  try { var result = fn.call(stage); if (result && result.catch) result.catch(function(){}); } catch(e) {}
+}
+function exitFullscreen() {
+  var fn = document.exitFullscreen || document.webkitExitFullscreen || document.webkitCancelFullScreen;
+  if (!fn || !fullscreenElement()) return;
+  try { var result = fn.call(document); if (result && result.catch) result.catch(function(){}); } catch(e) {}
+}
+function updateFullscreenLabel() {
+  fullscreenButton.textContent = fullscreenElement() ? 'Έξοδος fullscreen' : 'Fullscreen';
+}
+document.addEventListener('fullscreenchange', updateFullscreenLabel);
+document.addEventListener('webkitfullscreenchange', updateFullscreenLabel);
+function showTools() { toolbar.classList.add('visible'); }
+function hideTools() { toolbar.classList.remove('visible'); }
+function focusNative() {
+  hideTools();
+  frame.focus();
+  try { frame.contentWindow.focus(); } catch(e) {}
 }
 function openPlayer(card) {
   var id = ytIdFrom(card.getAttribute('href') || card.href);
   if (!id) return;
   returnCard = card;
-  ytPlaying = false;
-  var frame = document.getElementById('yt');
-  var play = document.getElementById('play');
-  document.getElementById('stage').className = '';
-  play.className = '';
-  frame.onload = function () {
-    try { frame.contentWindow.postMessage('{"event":"listening","id":"yt"}', '*'); } catch (err) {}
-  };
-  frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1';
-  play.focus();
+  document.documentElement.classList.add('playing');
+  stage.className = '';
+  frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&controls=1&fs=1&disablekb=0&playsinline=1';
+  try { history.pushState({mifTVPlayer:true}, '', location.href); playerHistory = true; } catch(e) { playerHistory = false; }
+  showTools();
+  document.getElementById('playerControls').focus();
+  requestFullscreen();
 }
-function closePlayer() {
-  document.getElementById('yt').src = 'about:blank';
-  document.getElementById('stage').className = 'off';
-  if (returnCard && returnCard.focus) focusCard(returnCard);
+function closePlayer(fromHistory) {
+  if (!stageOpen()) return;
+  exitFullscreen();
+  frame.src = 'about:blank';
+  stage.className = 'off';
+  hideTools();
+  document.documentElement.classList.remove('playing');
+  if (returnCard) focusCard(returnCard);
+  if (!fromHistory && playerHistory && history.state && history.state.mifTVPlayer) history.back();
+  playerHistory = false;
 }
-window.addEventListener('message', function (e) {
-  var origin = String(e.origin || '');
-  if (origin.indexOf('youtube') < 0) return;
-  var data = e.data;
-  if (typeof data === 'string') {
-    try { data = JSON.parse(data); } catch (err) { return; }
-  }
-  if (!data || data.event !== 'onStateChange') return;
-  var state = data.info;
-  if (state && typeof state === 'object') state = state.playerState;
-  if (state === 1) {
-    ytPlaying = true;
-    document.getElementById('play').className = 'off';
-  } else if (state === 2) ytPlaying = false;
+window.addEventListener('popstate', function() { if (stageOpen()) closePlayer(true); });
+document.getElementById('revealTools').addEventListener('click', function() {
+  showTools(); document.getElementById('playerControls').focus();
 });
-document.getElementById('play').addEventListener('click', function () {
-  document.getElementById('play').className = 'off';
-  ytCmd('playVideo');
-  ytPlaying = true;
+toolbar.addEventListener('focusin', showTools);
+frame.addEventListener('focus', hideTools);
+window.addEventListener('blur', function() {
+  if (stageOpen()) setTimeout(function() { if (document.activeElement === frame) hideTools(); }, 0);
+});
+document.getElementById('playerControls').addEventListener('click', focusNative);
+fullscreenButton.addEventListener('click', function() {
+  if (fullscreenElement()) exitFullscreen(); else requestFullscreen();
+});
+document.getElementById('playerClose').addEventListener('click', function() { closePlayer(false); });
+document.getElementById('playerExternal').addEventListener('click', function() {
+  if (returnCard) { exitFullscreen(); location.replace(returnCard.href); }
 });
 document.getElementById('grid').addEventListener('click', function (e) {
   var a = e.target;
@@ -459,18 +534,15 @@ document.addEventListener('keydown', function (e) {
     else if (e.key === 'Backspace') code = 8;
   }
   if (stageOpen()) {
-    if (code === 461 || code === 27 || code === 8) {
-      e.preventDefault();
-      closePlayer();
-      return;
+    if (code === 461 || code === 27 || code === 8 || e.key === 'BrowserBack') {
+      e.preventDefault(); closePlayer(false); return;
     }
-    if (code === 13) {
-      var play = document.getElementById('play');
-      if (play.className.indexOf('off') !== -1) {
-        e.preventDefault();
-        ytCmd(ytPlaying ? 'pauseVideo' : 'playVideo');
-        ytPlaying = !ytPlaying;
-      }
+    if (code === 40) { e.preventDefault(); focusNative(); return; }
+    if (code === 37 || code === 39 || code === 38) {
+      e.preventDefault(); showTools(); move(toolbar.querySelectorAll('button'), code); return;
+    }
+    if (code === 13 && document.activeElement && document.activeElement.tagName === 'BUTTON') {
+      e.preventDefault(); document.activeElement.click();
     }
     return;
   }
@@ -504,6 +576,7 @@ document.addEventListener('keydown', function (e) {
   if (code === 13) {
     var card = document.activeElement;
     if (!card || !card.getAttribute) return;
+    if (card.tagName === 'BUTTON') { e.preventDefault(); card.click(); return; }
     var href = card.getAttribute('href') || '';
     if (href.indexOf('https://www.youtube.com/watch') === 0) {
       e.preventDefault();
@@ -514,7 +587,7 @@ document.addEventListener('keydown', function (e) {
   }
 });
 if (isOpen()) {
-  var firstCard = cards()[0];
+  var firstCard = activeCategory();
   if (firstCard) firstCard.focus();
 } else {
   var firstKey = keys()[0];
