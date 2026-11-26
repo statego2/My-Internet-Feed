@@ -28,8 +28,8 @@ header{display:flex;align-items:center;justify-content:space-between;
 #categories button{font:inherit;font-size:22px;color:#F6F6F3;background:#25221d;border:1px solid #39352d;border-radius:20px;padding:8px 17px;margin:4px 8px 4px 0;cursor:pointer;}
 #categories button.active{background:#C4A35A;color:#161512;border-color:#C4A35A;}
 #categories button:focus,.player-tools button:focus{outline:3px solid #F6F6F3;outline-offset:3px;}
-#grid{padding:16px 48px 48px;}
-.video-grid{display:block;font-size:0;} .video-grid:after{content:'';display:block;clear:both;} .video-grid a.card{display:inline-block;vertical-align:top;width:23.5%;margin:0 1.5% 20px 0;font-size:16px;box-sizing:border-box;} .more{display:block;margin:18px auto 28px;padding:12px 24px;font:inherit;font-size:22px;color:#F6F6F3;background:#25221d;border:1px solid #C4A35A;border-radius:5px;} .more:focus{outline:3px solid #C4A35A;outline-offset:3px;}
+#grid{padding:16px 48px 48px;max-width:1720px;margin:0 auto;box-sizing:border-box;}
+.video-grid{display:block;font-size:0;text-align:center;} .video-grid:after{content:'';display:block;clear:both;} .video-grid a.card{display:inline-block;vertical-align:top;width:23%;margin:0 .75% 20px;font-size:16px;text-align:left;box-sizing:border-box;} .more{display:block;margin:18px auto 28px;padding:12px 24px;font:inherit;font-size:22px;color:#F6F6F3;background:#25221d;border:1px solid #C4A35A;border-radius:5px;} .more:focus{outline:3px solid #C4A35A;outline-offset:3px;}
 a.card{display:block;min-width:0;color:inherit;text-decoration:none;background:#1C1A16;border-radius:6px;outline:none;overflow:hidden;}
 a.card:focus{outline:4px solid #C4A35A;outline-offset:4px;}
 .thumb{position:relative;width:100%;padding-top:56.25%;background:#12110F;overflow:hidden;}
@@ -53,15 +53,15 @@ html.open #gate{display:none;}
 .keys button:focus{outline:5px solid #C4A35A;outline-offset:4px;transform:scale(1.04);}
 html.playing,html.playing body{overflow:hidden!important;overscroll-behavior:none;}
 html.playing::-webkit-scrollbar,html.playing body::-webkit-scrollbar{display:none;width:0;height:0;}
-html.playing #feed{visibility:hidden;}
+html.playing #feed{display:none;}
 #stage{position:fixed;left:0;top:0;right:0;bottom:0;background:#000;z-index:30;overflow:hidden;}
 #stage.off{display:none;}
-#stage iframe{position:absolute;display:block;left:0;top:0;width:100%;height:100%;border:0;}
-.player-tools{position:absolute;right:14px;top:12px;z-index:2;display:flex;padding:6px;background:rgba(0,0,0,.85);border-radius:8px;opacity:0;pointer-events:none;}
-.player-tools.visible,.player-tools:hover{opacity:1;pointer-events:auto;}
+#stage iframe{position:absolute;display:block;left:0;top:0;width:100%;height:100%;border:0;background:#000;}
+.player-tools{position:absolute;right:14px;top:12px;z-index:2;display:flex;padding:6px;background:rgba(0,0,0,.85);border-radius:8px;visibility:hidden;pointer-events:none;}
+.player-tools.visible,.player-tools:hover{visibility:visible;pointer-events:auto;}
 .player-tools button{font:inherit;font-size:18px;background:#25221d;color:#fff;border:1px solid #777;border-radius:5px;padding:9px 13px;margin:0 3px;cursor:pointer;}
 #revealTools{position:absolute;right:12px;top:8px;z-index:1;font:inherit;font-size:20px;background:rgba(0,0,0,.7);color:white;border:0;border-radius:4px;padding:6px 13px;cursor:pointer;}
-#revealTools:focus{outline:3px solid white;}
+#revealTools:focus{outline:3px solid white;} #stage.native #revealTools{opacity:0;} #stage.native #revealTools:hover,#stage.native #revealTools:focus{opacity:1;}
 @media (max-width:1600px){
  header{padding:22px 32px 4px;}
  .mark{width:60px;height:60px;}
@@ -69,14 +69,14 @@ html.playing #feed{visibility:hidden;}
  #categories{padding:8px 32px;}
  #categories button{font-size:19px;padding:7px 13px;}
  #grid{padding:16px 32px 36px;}
-  .video-grid a.card{width:31.8%;margin-right:1.5%;}
+  .video-grid a.card{width:31.5%;margin:0 .75% 18px;}
  .ti{font-size:24px;}
  .meta{font-size:18px;}
  .keys{grid-template-columns:repeat(3,112px);grid-gap:12px;}
  .keys button{height:88px;font-size:34px;}
 }
 @media (max-width:850px){
-  .video-grid a.card{width:48.5%;margin-right:1.5%;}
+  .video-grid a.card{width:48%;margin:0 .75% 16px;}
  #categories{padding:8px 16px;}
  #grid{padding:16px;}
  .ti{font-size:20px;}
@@ -155,7 +155,12 @@ function age(iso) {
   return 'πριν από ' + days + (days === 1 ? ' ημέρα' : ' ημέρες');
 }
 function thumb(v) {
-  return String(v.thumb || '').replace('/mqdefault.jpg', '/hqdefault.jpg');
+  var url=String(v.thumb || '');
+  if(v.platform==='youtube') {
+    if(!url && /^yt:[A-Za-z0-9_-]{11}$/.test(v.id)) url='https://i.ytimg.com/vi/'+v.id.substring(3)+'/mqdefault.jpg';
+    return url.replace('/hqdefault.jpg','/mqdefault.jpg').replace('/maxresdefault.jpg','/mqdefault.jpg').replace('/sddefault.jpg','/mqdefault.jpg');
+  }
+  return url;
 }
 
 function rowSort(a, b) {
@@ -187,10 +192,13 @@ function cardHtml(v) {
 var groups = D.groups || [];
 var videos = D.videos || [];
 var selectedGroup = 'all';
-var shownLimit = 24;
-var PAGE_SIZE = 24;
+var shownLimit = 12;
+var PAGE_SIZE = 12;
+var feedBuckets = [];
+var renderedCount = 0;
 var feedTotal = 0;
 var thumbPending = false;
+var thumbTimer = 0;
 var categoryBar = document.getElementById('categories');
 var options = [['all','Όλα']].concat(groups);
 var navHtml = '';
@@ -203,8 +211,10 @@ function categoryButtons() { return categoryBar.querySelectorAll('button'); }
 function activeCategory() { return categoryBar.querySelector('.active'); }
 function loadVisibleThumbs() {
   thumbPending = false;
+  thumbTimer = 0;
+  if(!isOpen() || stageOpen()) return;
   var images = document.getElementById('grid').querySelectorAll('img[data-src]');
-  var bottom = window.innerHeight + 300;
+  var bottom = window.innerHeight + 160;
   for (var i=0;i<images.length;i++) {
     var img=images[i], r=img.getBoundingClientRect();
     if (r.bottom >= -200 && r.top <= bottom) {
@@ -215,48 +225,72 @@ function loadVisibleThumbs() {
 }
 function scheduleThumbs() {
   if (thumbPending || !isOpen() || stageOpen()) return;
-  thumbPending=true; setTimeout(loadVisibleThumbs,60);
+  thumbPending=true; thumbTimer=setTimeout(loadVisibleThumbs,60);
 }
 function renderFeed() {
-  var buttons = categoryButtons();
-  for (var i = 0; i < buttons.length; i++) {
-    var active = buttons[i].getAttribute('data-group') === selectedGroup;
-    buttons[i].className = active ? 'active' : '';
-    buttons[i].setAttribute('aria-pressed', active ? 'true' : 'false');
+  var buttons=categoryButtons(), g, n;
+  for (var i=0;i<buttons.length;i++) {
+    var active=buttons[i].getAttribute('data-group')===selectedGroup;
+    buttons[i].className=active?'active':'';
+    buttons[i].setAttribute('aria-pressed',active?'true':'false');
   }
-  var html='', known={}, buckets=[], total=0, left=shownLimit;
-  for (var g=0;g<groups.length;g++) {
+  var known={};
+  feedBuckets=[];
+  feedTotal=0;
+  renderedCount=0;
+  for(g=0;g<groups.length;g++) {
     var gid=groups[g][0];
     known[gid]=true;
-    if (selectedGroup!=='all' && selectedGroup!==gid) continue;
+    if(selectedGroup!=='all'&&selectedGroup!==gid) continue;
     var bucket=[];
-    for(var n=0;n<videos.length;n++) {
-      if ((chById[videos[n].chid]||{}).group===gid) bucket.push(videos[n]);
-    }
-    if (bucket.length) buckets.push([groups[g][1],bucket.sort(rowSort)]);
+    for(n=0;n<videos.length;n++) if((chById[videos[n].chid]||{}).group===gid) bucket.push(videos[n]);
+    if(bucket.length) feedBuckets.push({label:groups[g][1],videos:bucket.sort(rowSort),node:null,count:0});
   }
-  if (selectedGroup==='all') {
+  if(selectedGroup==='all') {
     var other=videos.filter(function(v){return !known[(chById[v.chid]||{}).group];}).sort(rowSort);
-    if(other.length) buckets.push(['Άλλα',other]);
+    if(other.length) feedBuckets.push({label:'Άλλα',videos:other,node:null,count:0});
   }
-  for(var k=0;k<buckets.length;k++) {
-    var list=buckets[k][1];
-    total+=list.length;
-    if(left<=0) continue;
-    html+='<section class="row"><h2>'+esc(buckets[k][0])+'</h2><div class="video-grid">';
-    for(var j=0;j<list.length&&left>0;j++,left--) html+=cardHtml(list[j]);
-    html+='</div></section>';
+  for(g=0;g<feedBuckets.length;g++) feedTotal+=feedBuckets[g].videos.length;
+  document.getElementById('grid').innerHTML='';
+  if(!feedTotal) {
+    document.getElementById('grid').innerHTML='<p class="empty">Δεν υπάρχουν βίντεο.</p>';
+    return;
   }
-  feedTotal=total;
-  if(total>shownLimit) html+='<button type="button" class="more" id="moreVideos">Περισσότερα ('+Math.min(shownLimit,total)+' / '+total+')</button>';
-  document.getElementById('grid').innerHTML=html||'<p class="empty">Δεν υπάρχουν βίντεο.</p>';
+  appendCards();
+}
+function appendCards() {
+  var grid=document.getElementById('grid');
+  var more=document.getElementById('moreVideos');
+  if(more) grid.removeChild(more);
+  for(var k=0;k<feedBuckets.length&&renderedCount<shownLimit;k++) {
+    var b=feedBuckets[k], html='';
+    if(b.count>=b.videos.length) continue;
+    if(!b.node) {
+      var section=document.createElement('section');
+      section.className='row';
+      section.innerHTML='<h2>'+esc(b.label)+'</h2><div class="video-grid"></div>';
+      grid.appendChild(section);
+      b.node=section.lastChild;
+    }
+    while(b.count<b.videos.length&&renderedCount<shownLimit) {
+      html+=cardHtml(b.videos[b.count++]);
+      renderedCount++;
+    }
+    if(html) b.node.insertAdjacentHTML('beforeend',html);
+  }
+  if(renderedCount<feedTotal) {
+    more=document.createElement('button');
+    more.type='button';more.className='more';more.id='moreVideos';
+    more.textContent='Περισσότερα ('+renderedCount+' / '+feedTotal+')';
+    grid.appendChild(more);
+  }
   loadVisibleThumbs();
 }
 function showMore() {
-  if(shownLimit>=feedTotal) return;
-  var oldCount=cards().length;
+  if(renderedCount>=feedTotal) return;
+  var oldCount=renderedCount;
   shownLimit+=PAGE_SIZE;
-  renderFeed();
+  appendCards();
   var next=cards()[oldCount];
   if(next) focusCard(next);
 }
@@ -434,6 +468,7 @@ function move(all, dir) {
 }
 function focusCard(el) {
   el.focus();
+  if(String(el.href||'').indexOf('https://www.youtube.com/watch')===0) warmPlayer();
   var r = el.getBoundingClientRect();
   var top = categoryBar.getBoundingClientRect().bottom + 12;
   var y = window.pageYOffset || document.documentElement.scrollTop || 0;
@@ -471,7 +506,14 @@ function moveCard(dir) {
   else if (dir === 40 && shownLimit < feedTotal) showMore();
   else if (dir === 38 && activeCategory()) { window.scrollTo(0,0); activeCategory().focus(); }
 }
-var returnCard = null, playerHistory = false;
+var returnCard = null, playerHistory = false, returnScroll = 0, warmed = false;
+function warmPlayer() {
+  if(warmed) return;
+  warmed=true;
+  var link=document.createElement('link');
+  link.rel='preconnect';link.href='https://www.youtube-nocookie.com';
+  document.head.appendChild(link);
+}
 var stage = document.getElementById('stage');
 var frame = document.getElementById('yt');
 var toolbar = document.getElementById('playerTools');
@@ -499,10 +541,11 @@ function updateFullscreenLabel() {
 }
 document.addEventListener('fullscreenchange', updateFullscreenLabel);
 document.addEventListener('webkitfullscreenchange', updateFullscreenLabel);
-function showTools() { toolbar.classList.add('visible'); }
+function showTools() { stage.className=''; toolbar.classList.add('visible'); }
 function hideTools() { toolbar.classList.remove('visible'); }
 function focusNative() {
   hideTools();
+  stage.className='native';
   frame.focus();
   try { frame.contentWindow.focus(); } catch(e) {}
 }
@@ -510,12 +553,16 @@ function openPlayer(card) {
   var id = ytIdFrom(card.getAttribute('href') || card.href);
   if (!id) return;
   returnCard = card;
+  returnScroll = window.pageYOffset || document.documentElement.scrollTop || 0;
+  if(thumbTimer) clearTimeout(thumbTimer);
+  thumbPending=false;thumbTimer=0;
+  warmPlayer();
   document.documentElement.className = 'open playing';
   stage.className = '';
   frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&controls=1&fs=1&disablekb=0&playsinline=1';
   try { history.pushState({mifTVPlayer:true}, '', location.href); playerHistory = true; } catch(e) { playerHistory = false; }
-  showTools();
-  document.getElementById('playerControls').focus();
+  hideTools();
+  document.getElementById('revealTools').focus();
 }
 function closePlayer(fromHistory) {
   if (!stageOpen()) return;
@@ -524,6 +571,7 @@ function closePlayer(fromHistory) {
   stage.className = 'off';
   hideTools();
   document.documentElement.className = 'open';
+  window.scrollTo(0,returnScroll);
   if (returnCard) focusCard(returnCard);
   scheduleThumbs();
   if (!fromHistory && playerHistory && history.state && history.state.mifTVPlayer) history.back();
@@ -534,7 +582,7 @@ document.getElementById('revealTools').addEventListener('click', function() {
   showTools(); document.getElementById('playerControls').focus();
 });
 toolbar.addEventListener('focusin', showTools);
-frame.addEventListener('focus', hideTools);
+frame.addEventListener('focus', function(){hideTools();if(stageOpen())stage.className='native';});
 window.addEventListener('blur', function() {
   if (stageOpen()) setTimeout(function() { if (document.activeElement === frame) hideTools(); }, 0);
 });

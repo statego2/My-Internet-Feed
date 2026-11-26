@@ -309,7 +309,23 @@ def render(data):
 
 
 def render_tv(blob, fonts):
-    """Couch view for a webOS browser. Same embedded feed as docs/index.html."""
+    """Couch view for a webOS browser, with only the fields used by TV."""
+    data = json.loads(blob)
+    tv_data = {
+        'groups': data.get('groups', []),
+        'generated_label': data.get('generated_label', ''),
+        'channels': [{k: c[k] for k in ('id', 'group', 'sos', 'title') if k in c}
+                     for c in data.get('channels', [])],
+        'videos': [],
+    }
+    for v in data.get('videos', []):
+        item = {k: v[k] for k in ('id', 'title', 'ch', 'chid', 'platform', 'date', 'dur', 'live', 'url', 'thumb') if k in v}
+        if v.get('platform') == 'youtube' and re.fullmatch(r'yt:[A-Za-z0-9_-]{11}', v.get('id', '')):
+            item.pop('url', None)
+            if v.get('thumb') == 'https://i.ytimg.com/vi/' + v['id'][3:] + '/mqdefault.jpg':
+                item.pop('thumb', None)
+        tv_data['videos'].append(item)
+    blob = json.dumps(tv_data, ensure_ascii=False, separators=(',', ':')).replace('</', '<\\/')
     tv = os.path.join(SITE, 'tv')
     os.makedirs(tv, exist_ok=True)
     tpl = open(os.path.join(HERE, 'template_tv.html'), encoding='utf8').read()
