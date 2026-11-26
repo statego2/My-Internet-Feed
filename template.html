@@ -211,7 +211,7 @@ catch(e){document.documentElement.setAttribute('data-theme','dark')}})();
   <rect x="29.84" y="30.10" width="18.5" height="2.35" rx="0.4" fill="#C4A35A"/>
   <rect x="29.84" y="39.50" width="12.5" height="2.35" rx="0.4" fill="#C4A35A"/>
 </svg><span class="wordmark">My Internet Feed</span></h1>
-    <span class="gen" id="gen"></span>
+    <span class="gen" id="gen" role="status" aria-live="polite"></span>
     <button class="sync off" id="syncBtn" type="button" aria-label="Συγχρονισμός" title="Συγχρονισμός συσκευών">
       <span class="sync-dot" aria-hidden="true"></span><span id="syncLbl">Τοπικά</span>
     </button>
@@ -386,7 +386,14 @@ function useFeed(next){
   for(const k in chById) delete chById[k];
   (D.channels||[]).forEach(c=>chById[c.id]=c);
   const g=document.getElementById('gen');
-  if(g) g.textContent='Ενημερώθηκε  '+(D.generated_label||'');
+  if(g){
+    const failed=(D.errors||[]).length;
+    const pending=(D.videos||[]).filter(v=>v.metadata_pending).length;
+    g.textContent='Τελευταίος έλεγχος '+(D.generated_label||'')+
+      (failed?' · '+failed+' πηγές με σφάλμα':'')+
+      (pending?' · '+pending+' χωρίς διάρκεια':'');
+    g.title=[...(D.errors||[]),...(D.warnings||[])].join('\n');
+  }
 }
 useFeed(D);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -469,13 +476,18 @@ async function refreshFeed(manual){
     if(!res.ok) throw new Error(String(res.status));
     const next=await res.json();
     if(!next||!Array.isArray(next.videos)||!Array.isArray(next.channels)) throw new Error('bad');
-    const y=window.scrollY;
+    if(next.generated!==D.generated){
+      const y=window.scrollY;
+      useFeed(next);
+      render();
+      window.scrollTo(0,y);
+    }
     useFeed(next);
-    render();
-    window.scrollTo(0,y);
     lastRefreshAt=Date.now();
     syncNow();
   }catch(e){
+    const g=document.getElementById('gen');
+    if(g) g.textContent='Αποτυχία σύνδεσης · τελευταίος έλεγχος '+(D.generated_label||'');
   }finally{
     refreshBusy=false;
     if(btn) btn.classList.remove('busy');
@@ -484,6 +496,8 @@ async function refreshFeed(manual){
 document.getElementById('refreshBtn').addEventListener('click',()=>refreshFeed(true));
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refreshFeed(false); });
 window.addEventListener('pageshow',e=>{ if(e.persisted) refreshFeed(false); });
+window.addEventListener('online',()=>refreshFeed(true));
+setInterval(()=>{if(document.visibilityState==='visible') refreshFeed(false);},REFRESH_MS);
 refreshFeed(false);
 
 function bar(){

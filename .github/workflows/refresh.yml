@@ -10,6 +10,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/refresh.yml'
+      - 'build.py'
+      - 'template.html'
+      - 'test_feed.py'
 
 permissions:
   contents: write
@@ -31,6 +34,8 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Test RSS fallback
+        run: python3 -m unittest test_feed
       - name: Install Playwright and Chromium
         run: pip install playwright && playwright install --with-deps chromium
 

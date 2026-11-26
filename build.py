@@ -116,6 +116,7 @@ def fetch_yt(ch, days, per, cache):
     author = root.findtext('a:author/a:name', default=ch['title'], namespaces=NS)
     vids = []
     unresolved = 0
+    unverified = 0
     for e in root.findall('a:entry', NS):
         vid = e.findtext('yt:videoId', namespaces=NS)
         title = e.findtext('a:title', namespaces=NS) or ''
@@ -125,25 +126,30 @@ def fetch_yt(ch, days, per, cache):
         if tfilter and tfilter not in title.lower():
             continue
         d = yt_details(vid, cache)
-        # A bot wall returns HTTP 200 with no duration. That is a failure, not an empty channel.
-        if not d:
-            unresolved += 1
-            continue
+        # RSS is authoritative for published IDs and titles. A watch-page block
+        # must not discard an entire channel or invent video duration.
+        unknown = d is None
+        if unknown:
+            if minlen:
+                unresolved += 1
+                continue
+            unverified += 1
+            d = dict(len=None, live=False, upcoming=False, short=False)
         if d['upcoming'] or d['short']:
             continue
         if d['len'] == 0 and not d['live']:
             continue
-        if d['len'] < minlen and not d['live']:
+        if not unknown and d['len'] < minlen and not d['live']:
             continue
         vids.append(dict(id='yt:' + vid, title=title, ch=ch['title'], chid=ch['id'], platform='youtube',
                          date=pub.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), dur=d['len'],
-                         live=d['live'], url='https://www.youtube.com/watch?v=' + vid,
+                         live=d['live'], metadata_pending=unknown, url='https://www.youtube.com/watch?v=' + vid,
                          thumb=f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'))
         if len(vids) >= per:
             break
     if not vids and unresolved:
         return None, f"video details unavailable ({unresolved})"
-    return vids, None
+    return vids, (f"metadata pending ({unverified} unverified, {unresolved} filtered)" if unverified or unresolved else None)
 
 
 # ---------------- Rumble (best effort; Cloudflare => needs a real browser) ----------------
@@ -299,7 +305,11 @@ def collect(args):
     cache = load_json(os.path.join(DATA, 'cache.json'), {})
     last = load_last()
     published = published_snapshot()
-    videos, errors, stale = [], [], []
+    videos, errors, stale, warnings = [], [], [], []
+    # Preserve metadata of previously verified videos, even on a fresh CI runner.
+    for item in published.get('videos', []):
+        if item.get('platform') == 'youtube' and item.get('dur') and not item.get('metadata_pending') and not item.get('live'):
+            cache.setdefault(item['id'][3:], dict(len=item['dur'], live=False, upcoming=False, short=False))
 
     def job(ch):
         try:
@@ -321,10 +331,12 @@ def collect(args):
             errors.append(f"{ch['title']}: {err}")
             # Keep this channel's last items. data/ is gitignored, so CI falls back to docs/data.json.
             old = videos_for(last, ch['id']) or videos_for(published, ch['id'])
+            stale.append(ch['id'])
             if old:
                 videos += old
-                stale.append(ch['id'])
             continue
+        if err:
+            warnings.append(f"{ch['title']}: {err}")
         videos += v
     enrich_rumble_embeds(videos, published)
     json.dump(cache, open(os.path.join(DATA, 'cache.json'), 'w'))
@@ -332,7 +344,7 @@ def collect(args):
     data = dict(generated=gen.strftime('%Y-%m-%dT%H:%M:%SZ'), days=args.days,
                 channels=[dict(id=c['id'], title=c['title'], group=c['group'], sos=c['sos'], platform=c['platform'],
                                url=c['url']) for c in chans],
-                videos=videos, stale=stale, errors=errors)
+                videos=videos, stale=stale, errors=errors, warnings=warnings)
     json.dump(data, open(os.path.join(DATA, 'last.json'), 'w'), ensure_ascii=False)
     return data
 
