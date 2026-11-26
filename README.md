@@ -23,7 +23,7 @@ python3 build.py
 
 Python 3.9+ is enough for YouTube. The one Rumble channel needs `pip install playwright` and a Chrome/Chromium browser, because Cloudflare blocks plain HTTP. If Rumble or any other single channel fails, previous videos for that channel are kept and flagged stale, using `data/last.json` or, on a fresh checkout, `docs/data.json`.
 
-GitHub Actions (`.github/workflows/refresh.yml`) runs that build every 3 hours and on demand, then commits `docs/index.html`, `docs/data.json`, and `docs/tv/index.html` to `main` only when they changed. The phone page is rendered from `template.html`, so the sync controls stay in each refresh. The TV page is `docs/tv/` (`template_tv.html`): large cards, remote arrows, no sync.
+GitHub Actions (`.github/workflows/refresh.yml`) runs that build every hour and on demand, then commits `docs/index.html`, `docs/data.json`, and `docs/tv/index.html` to `main` only when they changed. The phone page is rendered from `template.html`, so the sync controls stay in each refresh. The TV page is `docs/tv/` (`template_tv.html`): large cards, remote arrows, no sync.
 
 ## Sync (optional)
 
