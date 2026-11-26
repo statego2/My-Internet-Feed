@@ -1,10 +1,10 @@
-# Rebuild the GitHub Pages site (branch main, folder /docs) every 3 hours.
+# Rebuild the GitHub Pages site (branch main, folder /docs) every hour.
 # One failed source does not fail the job: build.py keeps that channel's previous items.
 name: refresh-feed
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    - cron: "17 * * * *"
   workflow_dispatch:
 
 permissions:
