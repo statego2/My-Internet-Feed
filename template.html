@@ -142,6 +142,32 @@ details{margin-top:.9rem}
 summary{cursor:pointer;letter-spacing:.04em}
 details div{margin-top:.6rem;line-height:1.6}
 
+.sync{display:inline-flex;align-items:center;gap:.45rem;border:0;background:transparent;color:var(--muted);
+  cursor:pointer;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;min-height:36px;padding:0 .15rem;align-self:center}
+.sync:hover{color:var(--text)}
+.sync-dot{width:.48rem;height:.48rem;border-radius:50%;background:var(--muted);flex:none}
+.sync.ok .sync-dot{background:#5D9A62}
+.sync.pending .sync-dot{background:var(--gold)}
+.sync.err .sync-dot{background:var(--live)}
+.dlg-back{position:fixed;inset:0;background:rgba(18,18,18,.5);z-index:40;display:none;align-items:center;justify-content:center;
+  padding:1.25rem;backdrop-filter:blur(6px)}
+.dlg-back.on{display:flex}
+.dlg{background:var(--bg);color:var(--text);border:1px solid var(--line);max-width:30rem;width:100%;
+  padding:1.7rem 1.55rem 1.45rem;box-shadow:0 24px 60px -24px rgba(18,18,18,.45)}
+.dlg h2{font-family:var(--serif);font-weight:400;font-size:1.55rem;margin:0 0 .45rem;letter-spacing:-.02em}
+.dlg .lead{color:var(--muted);font-size:.95rem;line-height:1.45;margin:0 0 .4rem}
+.dlg label{display:grid;gap:.3rem;margin-top:1.05rem}
+.dlg label span{font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.dlg input{font:inherit;font-size:1rem;background:transparent;border:0;border-bottom:1px solid var(--line);
+  padding:.5rem 0;color:var(--text);border-radius:0;width:100%}
+.dlg input:focus{outline:none;border-bottom-color:var(--accent)}
+.dlg .row{display:flex;flex-wrap:wrap;gap:.85rem 1.15rem;margin-top:1.45rem;align-items:center}
+.dlg .hint{margin-top:1rem;font-size:.85rem;color:var(--muted);line-height:1.5}
+.dlg .hint code{font-size:.84em;white-space:nowrap}
+.dlg .msg{margin-top:.85rem;font-size:.88rem;min-height:1.2em}
+.dlg .msg.err{color:var(--live)}
+.dlg .msg.ok{color:#5D9A62}
+
 @media (max-width:620px){
   .grid{grid-template-columns:1fr;gap:1.15rem}
   .card{flex-direction:row;align-items:stretch;gap:0}
@@ -180,6 +206,9 @@ catch(e){document.documentElement.setAttribute('data-theme','dark')}})();
   <rect x="29.84" y="39.50" width="12.5" height="2.35" rx="0.4" fill="#C4A35A"/>
 </svg><span class="wordmark">My Internet Feed</span></h1>
     <span class="gen" id="gen"></span>
+    <button class="sync off" id="syncBtn" type="button" aria-label="Συγχρονισμός" title="Συγχρονισμός συσκευών">
+      <span class="sync-dot" aria-hidden="true"></span><span id="syncLbl">Τοπικά</span>
+    </button>
     <button class="theme" id="theme" type="button" aria-label="Αλλαγή θέματος" title="Αλλαγή θέματος">
       <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.6M12 19.4V21M4.9 4.9l1.1 1.1M18 18l1.1 1.1M3 12h1.6M19.4 12H21M4.9 19.1 6 18M18 6l1.1-1.1"/></svg>
       <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 13.5A7.5 7.5 0 1 1 10.5 4 6 6 0 0 0 20 13.5z"/></svg>
@@ -188,19 +217,159 @@ catch(e){document.documentElement.setAttribute('data-theme','dark')}})();
   <nav class="bar" id="bar" aria-label="Φίλτρα"></nav>
 </header>
 <main id="main"></main>
+<div class="dlg-back" id="syncDlg" hidden>
+  <form class="dlg" id="syncForm" autocomplete="off">
+    <h2>Συγχρονισμός</h2>
+    <p class="lead">Ίδιο κλειδί στο iPhone και στο Mac, για να μοιράζονται το «το είδα» και το κρύψιμο. Τα στοιχεία μένουν μόνο σε αυτή τη συσκευή, όχι στο δημόσιο σάιτ.</p>
+    <label><span>Supabase URL</span>
+      <input id="syncUrl" name="url" type="url" inputmode="url" spellcheck="false" placeholder="https://xxxx.supabase.co"></label>
+    <label><span>Anon ή publishable key</span>
+      <input id="syncAnon" name="anon" type="password" spellcheck="false" placeholder="sb_publishable_… ή το anon key"></label>
+    <label><span>Κλειδί συγχρονισμού</span>
+      <input id="syncSecret" name="secret" type="password" spellcheck="false" placeholder="το ίδιο σε όλες τις συσκευές"></label>
+    <div class="row">
+      <button class="btn" type="submit">Αποθήκευση</button>
+      <button class="btn" type="button" id="syncGen">Δημιουργία κλειδιού</button>
+      <button class="btn" type="button" id="syncClose">Κλείσιμο</button>
+    </div>
+    <p class="msg" id="syncMsg"></p>
+    <p class="hint">Πρώτα φτιάξε ένα δωρεάν project στο Supabase, τρέξε το αρχείο <code>supabase-setup.sql</code> στο SQL Editor (βάζοντας το κλειδί εκεί που λέει <code>REPLACE_WITH_YOUR_SECRET</code>) και μετά κόλλησε εδώ το Project URL, το anon/publishable key (ποτέ το service_role ή secret key) και το ίδιο κλειδί. Χωρίς αυτά, όλα μένουν μόνο σε αυτή τη συσκευή.</p>
+  </form>
+</div>
 <script id="d" type="application/json">/*__DATA__*/null</script>
 <script>
 const D=JSON.parse(document.getElementById('d').textContent.replace(/^\/\*__DATA__\*\//,''));
 const mem={};
 const st={get(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def}catch(e){return mem[k]??def}},
           set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){mem[k]=v}}};
-let seen=st.get('mif_seen',{}), hidden=st.get('mif_hidden',{});
+let seen={}, hidden={};
 let ui=Object.assign({unread:false,sos:false,hid:false,group:'all',q:''},st.get('mif_ui',{}));
 ui.q='';
-const save=()=>{st.set('mif_seen',seen);st.set('mif_hidden',hidden);st.set('mif_ui',ui)};
-const now=Date.now();
-for(const k in seen) if(now-seen[k]>60*864e5) delete seen[k];
-for(const k in hidden) if(now-hidden[k]>60*864e5) delete hidden[k];
+const CFG_KEY='mif_sync', STATE_KEY='mif_state';
+let state=st.get(STATE_KEY,null);
+if(!state || typeof state!=='object'){
+  state={};
+  const oldS=st.get('mif_seen',{}), oldH=st.get('mif_hidden',{});
+  for(const id in oldS) state[id]={seen:true,hidden:false,updated_at:+oldS[id]||Date.now()};
+  for(const id in oldH){
+    const prev=state[id]||{seen:false,hidden:false,updated_at:0};
+    state[id]={seen:!!prev.seen,hidden:true,updated_at:Math.max(+prev.updated_at||0,+oldH[id]||0)||Date.now()};
+  }
+}
+function applyMaps(){
+  seen={}; hidden={};
+  for(const id in state){
+    const r=state[id]; if(!r) continue;
+    if(r.seen) seen[id]=r.updated_at;
+    if(r.hidden) hidden[id]=r.updated_at;
+  }
+}
+function pruneLocal(){
+  if(syncCfg()) return;
+  const cut=Date.now()-60*864e5;
+  for(const id in state) if((+state[id].updated_at||0)<cut) delete state[id];
+}
+function persist(){
+  applyMaps();
+  const seenOut={}, hidOut={};
+  for(const id in state){
+    if(state[id].seen) seenOut[id]=state[id].updated_at;
+    if(state[id].hidden) hidOut[id]=state[id].updated_at;
+  }
+  st.set(STATE_KEY,state); st.set('mif_seen',seenOut); st.set('mif_hidden',hidOut); st.set('mif_ui',ui);
+}
+function setFlag(id, field, val){
+  const prev=state[id]||{seen:false,hidden:false,updated_at:0};
+  state[id]={seen:field==='seen'?val:!!prev.seen, hidden:field==='hidden'?val:!!prev.hidden, updated_at:Date.now()};
+  persist();
+  syncSoon();
+}
+function rowsFromState(){
+  return Object.keys(state).map(id=>({
+    video_id:id, seen:!!state[id].seen, hidden:!!state[id].hidden,
+    updated_at:new Date(+state[id].updated_at||Date.now()).toISOString()
+  }));
+}
+function adoptRemote(rows){
+  if(!Array.isArray(rows)) return false;
+  let changed=false;
+  for(const r of rows){
+    const id=r.video_id; if(!id) continue;
+    const ts=Date.parse(r.updated_at);
+    if(!Number.isFinite(ts)) continue;
+    const prev=state[id];
+    if(!prev || ts>=(+prev.updated_at||0)){
+      const next={seen:!!r.seen,hidden:!!r.hidden,updated_at:ts};
+      if(!prev || prev.seen!==next.seen || prev.hidden!==next.hidden || prev.updated_at!==next.updated_at){
+        state[id]=next; changed=true;
+      }
+    }
+  }
+  if(changed) persist();
+  return changed;
+}
+
+function syncCfg(){
+  const c=st.get(CFG_KEY,null);
+  if(!c||!c.url||!c.anon||!c.secret) return null;
+  const url=String(c.url).trim().replace(/\/$/,'');
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)) return null;
+  return {url, anon:String(c.anon).trim(), secret:String(c.secret)};
+}
+let syncTimer=null, syncInflight=null, lastSyncErr='';
+function setSyncUi(kind,label){
+  const b=document.getElementById('syncBtn');
+  if(!b) return;
+  b.className='sync '+kind;
+  document.getElementById('syncLbl').textContent=label;
+}
+function paintSyncIdle(){
+  if(!syncCfg()) setSyncUi('off','Τοπικά');
+  else if(!navigator.onLine) setSyncUi('err','Εκτός σύνδεσης');
+  else if(lastSyncErr) setSyncUi('err','Σφάλμα συγχρονισμού');
+  else setSyncUi('ok','Συγχρονισμένο');
+}
+async function syncNow(){
+  const cfg=syncCfg();
+  if(!cfg){ paintSyncIdle(); return; }
+  if(!navigator.onLine){ lastSyncErr='offline'; paintSyncIdle(); return; }
+  if(syncInflight) return syncInflight;
+  setSyncUi('pending','Συγχρονίζεται');
+  const run=fetch(cfg.url+'/rest/v1/rpc/sync_feed_state',{
+    method:'POST',
+    headers:{
+      'apikey':cfg.anon,
+      'Authorization':'Bearer '+cfg.anon,
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify({p_secret:cfg.secret, p_rows:rowsFromState()})
+  }).then(async res=>{
+    const text=await res.text();
+    let data=null;
+    try{data=text?JSON.parse(text):null}catch(e){ throw new Error('bad response'); }
+    if(!res.ok){
+      const msg=(data&&(data.message||data.error_description||data.error))||('HTTP '+res.status);
+      throw new Error(msg);
+    }
+    const changed=adoptRemote(data);
+    lastSyncErr='';
+    paintSyncIdle();
+    if(changed) render();
+  }).catch(err=>{
+    lastSyncErr=String(err&&err.message||err);
+    paintSyncIdle();
+  }).finally(()=>{ syncInflight=null; });
+  syncInflight=run;
+  return run;
+}
+function syncSoon(){
+  if(!syncCfg()) return;
+  clearTimeout(syncTimer);
+  syncTimer=setTimeout(()=>syncNow(),280);
+}
+
+pruneLocal(); applyMaps(); persist();
+
 
 const chById={};D.channels.forEach(c=>chById[c.id]=c);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -225,6 +394,51 @@ themeBtn.addEventListener('click',()=>{
   try{localStorage.setItem('mif_theme',next)}catch(e){}
   applyThemeColor();
 });
+
+const dlg=document.getElementById('syncDlg');
+function fillSyncForm(){
+  const c=st.get(CFG_KEY,{})||{};
+  document.getElementById('syncUrl').value=c.url||'';
+  document.getElementById('syncAnon').value=c.anon||'';
+  document.getElementById('syncSecret').value=c.secret||'';
+  document.getElementById('syncMsg').textContent=lastSyncErr&&syncCfg()?(lastSyncErr==='offline'?'Δεν υπάρχει σύνδεση.':lastSyncErr):'';
+  document.getElementById('syncMsg').className='msg'+(lastSyncErr&&syncCfg()?' err':'');
+}
+function openSync(){ fillSyncForm(); dlg.hidden=false; dlg.classList.add('on'); document.getElementById('syncUrl').focus(); }
+function closeSync(){ dlg.classList.remove('on'); dlg.hidden=true; }
+document.getElementById('syncBtn').addEventListener('click',openSync);
+document.getElementById('syncClose').addEventListener('click',closeSync);
+dlg.addEventListener('click',e=>{ if(e.target===dlg) closeSync(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&dlg.classList.contains('on')) closeSync(); });
+document.getElementById('syncGen').addEventListener('click',()=>{
+  const b=new Uint8Array(32); crypto.getRandomValues(b);
+  const secret=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');
+  document.getElementById('syncSecret').type='text';
+  document.getElementById('syncSecret').value=secret;
+  const msg=document.getElementById('syncMsg');
+  msg.className='msg';
+  msg.textContent='Αντίγραψε αυτό το κλειδί στο SQL (REPLACE_WITH_YOUR_SECRET) και στις άλλες συσκευές, μετά πάτα Αποθήκευση.';
+});
+document.getElementById('syncForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const url=document.getElementById('syncUrl').value.trim().replace(/\/$/,'');
+  const anon=document.getElementById('syncAnon').value.trim();
+  const secret=document.getElementById('syncSecret').value.trim();
+  const msg=document.getElementById('syncMsg');
+  if(!url||!anon||!secret){ msg.className='msg err'; msg.textContent='Συμπλήρωσε και τα τρία πεδία.'; return; }
+  if(!/^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(url)){ msg.className='msg err'; msg.textContent='Το URL πρέπει να είναι της μορφής https://xxxx.supabase.co'; return; }
+  if(/^sb_secret_/i.test(anon)){ msg.className='msg err'; msg.textContent='Αυτό είναι secret key. Χρειάζεται το anon ή το publishable key.'; return; }
+  st.set(CFG_KEY,{url,anon,secret});
+  lastSyncErr='';
+  msg.className='msg'; msg.textContent='Γίνεται δοκιμή…';
+  await syncNow();
+  if(lastSyncErr){ msg.className='msg err'; msg.textContent=lastSyncErr==='offline'?'Δεν υπάρχει σύνδεση.':('Δεν έγινε ο συγχρονισμός: '+lastSyncErr); }
+  else { msg.className='msg ok'; msg.textContent='Έτοιμο. Το ίδιο URL, key και κλειδί στις άλλες συσκευές.'; }
+});
+window.addEventListener('online',()=>syncNow());
+window.addEventListener('offline',()=>paintSyncIdle());
+paintSyncIdle();
+syncNow();
 
 function bar(){
   const el=document.getElementById('bar');
@@ -274,22 +488,25 @@ function render(){
   html+=`<footer>`;
   if(quiet.length)html+=`<details><summary>Χωρίς νέα τις τελευταίες ${D.days} ημέρες (${quiet.length})</summary><div>${quiet.map(c=>esc(c.title)).join(' · ')}</div></details>`;
   if(stale.size)html+=`<div style="margin-top:.8rem">Παλιά δεδομένα, δεν φορτώθηκαν: ${[...stale].map(i=>esc((chById[i]||{}).title||i)).join(', ')}</div>`;
-  html+=`<div style="margin-top:.8rem">Το «το είδα» και το κρύψιμο μένουν σε αυτή τη συσκευή.</div></footer>`;
+  html+=`<div style="margin-top:.8rem">Το «το είδα» και το κρύψιμο μένουν σε αυτή τη συσκευή. Με συγχρονισμό, μοιράζονται και στις άλλες.</div></footer>`;
   document.getElementById('main').innerHTML=html;
 }
 document.addEventListener('click',e=>{
   const t=e.target.closest('[data-g],[data-t],[data-a],[data-mark],a.hit');if(!t)return;
-  if(t.dataset.g){ui.group=t.dataset.g;save();render();return}
-  if(t.dataset.t){ui[t.dataset.t]=!ui[t.dataset.t];save();render();return}
-  if(t.dataset.mark){const k=t.dataset.mark;D.videos.forEach(v=>{if(chById[v.chid].group===k&&!hidden[v.id])seen[v.id]=Date.now()});save();render();return}
+  if(t.dataset.g){ui.group=t.dataset.g;persist();render();return}
+  if(t.dataset.t){ui[t.dataset.t]=!ui[t.dataset.t];persist();render();return}
+  if(t.dataset.mark){const k=t.dataset.mark;const ts=Date.now();D.videos.forEach(v=>{
+    if(chById[v.chid].group===k&&!hidden[v.id]){const prev=state[v.id]||{seen:false,hidden:false,updated_at:0};
+      state[v.id]={seen:true,hidden:!!prev.hidden,updated_at:ts};}});persist();syncSoon();render();return}
   const cardEl=t.closest('.card');if(!cardEl)return;const id=cardEl.dataset.id;
-  if(t.dataset.a==='seen'){e.preventDefault();if(seen[id])delete seen[id];else seen[id]=Date.now();save();cardEl.classList.toggle('seen',!!seen[id]);if(ui.unread)render();return}
-  if(t.dataset.a==='hide'){e.preventDefault();if(hidden[id])delete hidden[id];else hidden[id]=Date.now();save();render();return}
-  if(t.matches('a.hit')){seen[id]=Date.now();save();cardEl.classList.add('seen');if(ui.unread)setTimeout(render,400)}
+  if(t.dataset.a==='seen'){e.preventDefault();setFlag(id,'seen',!seen[id]);cardEl.classList.toggle('seen',!!seen[id]);if(ui.unread)render();return}
+  if(t.dataset.a==='hide'){e.preventDefault();setFlag(id,'hidden',!hidden[id]);render();return}
+  if(t.matches('a.hit')){setFlag(id,'seen',true);cardEl.classList.add('seen');if(ui.unread)setTimeout(render,400)}
 });
-document.addEventListener('auxclick',e=>{const a=e.target.closest('a.hit');if(a){const c=a.closest('.card');seen[c.dataset.id]=Date.now();save();c.classList.add('seen')}});
+document.addEventListener('auxclick',e=>{const a=e.target.closest('a.hit');if(a){const c=a.closest('.card');setFlag(c.dataset.id,'seen',true);c.classList.add('seen')}});
 document.addEventListener('input',e=>{if(e.target.id==='q'){ui.q=e.target.value;const p=e.target.selectionStart;render();const q=document.getElementById('q');q.focus();q.setSelectionRange(p,p)}});
 render();
+
 </script>
 </body>
 </html>
