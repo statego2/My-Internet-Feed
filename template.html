@@ -61,6 +61,12 @@ header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--bg) 8
 .theme{margin-left:.2rem;flex:none;width:36px;height:36px;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:var(--radius);display:inline-flex;align-items:center;justify-content:center;align-self:center}
 .theme:hover{color:var(--text)}
 .theme svg{width:18px;height:18px}
+.refresh{flex:none;width:36px;height:36px;margin-left:.2rem;border:0;background:transparent;color:var(--muted);cursor:pointer;border-radius:var(--radius);display:inline-flex;align-items:center;justify-content:center;align-self:center;padding:0}
+.refresh:hover{color:var(--text)}
+.refresh svg{width:18px;height:18px}
+.refresh.busy svg{animation:mif-spin 1.2s linear infinite}
+@media (prefers-reduced-motion:reduce){.refresh.busy svg{animation:none}}
+@keyframes mif-spin{to{transform:rotate(360deg)}}
 html[data-theme="light"] .icon-sun{display:none}
 html[data-theme="dark"] .icon-moon{display:none}
 
@@ -213,6 +219,9 @@ catch(e){document.documentElement.setAttribute('data-theme','dark')}})();
       <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 3v1.6M12 19.4V21M4.9 4.9l1.1 1.1M18 18l1.1 1.1M3 12h1.6M19.4 12H21M4.9 19.1 6 18M18 6l1.1-1.1"/></svg>
       <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 13.5A7.5 7.5 0 1 1 10.5 4 6 6 0 0 0 20 13.5z"/></svg>
     </button>
+    <button class="refresh" id="refreshBtn" type="button" aria-label="Ανανέωση" title="Ανανέωση">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 1 1-2.4-6"/><path d="M20.5 3.5V8h-4.5"/></svg>
+    </button>
   </div>
   <nav class="bar" id="bar" aria-label="Φίλτρα"></nav>
 </header>
@@ -238,7 +247,7 @@ catch(e){document.documentElement.setAttribute('data-theme','dark')}})();
 </div>
 <script id="d" type="application/json">/*__DATA__*/null</script>
 <script>
-const D=JSON.parse(document.getElementById('d').textContent.replace(/^\/\*__DATA__\*\//,''));
+let D=JSON.parse(document.getElementById('d').textContent.replace(/^\/\*__DATA__\*\//,''));
 const mem={};
 const st={get(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def}catch(e){return mem[k]??def}},
           set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){mem[k]=v}}};
@@ -371,7 +380,15 @@ function syncSoon(){
 pruneLocal(); applyMaps(); persist();
 
 
-const chById={};D.channels.forEach(c=>chById[c.id]=c);
+const chById={};
+function useFeed(next){
+  D=next;
+  for(const k in chById) delete chById[k];
+  (D.channels||[]).forEach(c=>chById[c.id]=c);
+  const g=document.getElementById('gen');
+  if(g) g.textContent='Ενημερώθηκε  '+(D.generated_label||'');
+}
+useFeed(D);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmtDur=s=>{if(!s)return'';const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return h?`${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}`:`${m}:${String(x).padStart(2,'0')}`};
 const rtf=new Intl.RelativeTimeFormat('el',{numeric:'auto'});
@@ -382,7 +399,6 @@ function ago(iso){const diff=(new Date(iso)-Date.now())/1000;const a=Math.abs(di
 const dateLbl=iso=>new Date(iso).toLocaleDateString('el-GR',{day:'numeric',month:'short',timeZone:'Europe/Athens'});
 const thumb=u=>(u||'').replace('/mqdefault.jpg','/hqdefault.jpg');
 
-document.getElementById('gen').textContent='Ενημερώθηκε  '+D.generated_label;
 const themeBtn=document.getElementById('theme');
 const applyThemeColor=()=>{const dark=document.documentElement.getAttribute('data-theme')!=='light';
   const c=dark?'#161512':'#F6F6F3';
@@ -439,6 +455,36 @@ window.addEventListener('online',()=>syncNow());
 window.addEventListener('offline',()=>paintSyncIdle());
 paintSyncIdle();
 syncNow();
+
+const REFRESH_MS=5*60*1000;
+let lastRefreshAt=0, refreshBusy=false;
+async function refreshFeed(manual){
+  if(refreshBusy) return;
+  if(!manual && lastRefreshAt && Date.now()-lastRefreshAt<REFRESH_MS) return;
+  refreshBusy=true;
+  const btn=document.getElementById('refreshBtn');
+  if(btn) btn.classList.add('busy');
+  try{
+    const res=await fetch('data.json?t='+Date.now(),{cache:'no-store'});
+    if(!res.ok) throw new Error(String(res.status));
+    const next=await res.json();
+    if(!next||!Array.isArray(next.videos)||!Array.isArray(next.channels)) throw new Error('bad');
+    const y=window.scrollY;
+    useFeed(next);
+    render();
+    window.scrollTo(0,y);
+    lastRefreshAt=Date.now();
+    syncNow();
+  }catch(e){
+  }finally{
+    refreshBusy=false;
+    if(btn) btn.classList.remove('busy');
+  }
+}
+document.getElementById('refreshBtn').addEventListener('click',()=>refreshFeed(true));
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refreshFeed(false); });
+window.addEventListener('pageshow',e=>{ if(e.persisted) refreshFeed(false); });
+refreshFeed(false);
 
 function bar(){
   const el=document.getElementById('bar');
