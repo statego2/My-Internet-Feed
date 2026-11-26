@@ -13,7 +13,6 @@ try {
 }
 </script>
 <style>
-/*__FONTS__*/
 html,body{margin:0;background:#161512;color:#F6F6F3;
   font-family:"Source Sans 3","Source Sans Pro",Helvetica,Arial,sans-serif;}
 header{display:flex;align-items:center;justify-content:space-between;
@@ -30,7 +29,7 @@ header{display:flex;align-items:center;justify-content:space-between;
 #categories button.active{background:#C4A35A;color:#161512;border-color:#C4A35A;}
 #categories button:focus,.player-tools button:focus{outline:3px solid #F6F6F3;outline-offset:3px;}
 #grid{padding:16px 48px 48px;}
-.video-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-gap:22px;}
+.video-grid{display:block;font-size:0;} .video-grid:after{content:'';display:block;clear:both;} .video-grid a.card{display:inline-block;vertical-align:top;width:23.5%;margin:0 1.5% 20px 0;font-size:16px;box-sizing:border-box;} .more{display:block;margin:18px auto 28px;padding:12px 24px;font:inherit;font-size:22px;color:#F6F6F3;background:#25221d;border:1px solid #C4A35A;border-radius:5px;} .more:focus{outline:3px solid #C4A35A;outline-offset:3px;}
 a.card{display:block;min-width:0;color:inherit;text-decoration:none;background:#1C1A16;border-radius:6px;outline:none;overflow:hidden;}
 a.card:focus{outline:4px solid #C4A35A;outline-offset:4px;}
 .thumb{position:relative;width:100%;padding-top:56.25%;background:#12110F;overflow:hidden;}
@@ -70,14 +69,14 @@ html.playing #feed{visibility:hidden;}
  #categories{padding:8px 32px;}
  #categories button{font-size:19px;padding:7px 13px;}
  #grid{padding:16px 32px 36px;}
- .video-grid{grid-template-columns:repeat(3,minmax(0,1fr));grid-gap:18px;}
+  .video-grid a.card{width:31.8%;margin-right:1.5%;}
  .ti{font-size:24px;}
  .meta{font-size:18px;}
  .keys{grid-template-columns:repeat(3,112px);grid-gap:12px;}
  .keys button{height:88px;font-size:34px;}
 }
 @media (max-width:850px){
- .video-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .video-grid a.card{width:48.5%;margin-right:1.5%;}
  #categories{padding:8px 16px;}
  #grid{padding:16px;}
  .ti{font-size:20px;}
@@ -180,7 +179,7 @@ function cardHtml(v) {
   var mark = ch.sos ? '<span class="sos">SOS</span>' : '';
   var dur = duration(v);
   return '<a class="card" href="' + esc(videoUrl(v)) + '">' +
-    '<div class="thumb"><img loading="lazy" alt="" src="' + esc(thumb(v)) + '">' + mark +
+    '<div class="thumb"><img loading="lazy" alt="" data-src="' + esc(thumb(v)) + '">' + mark +
     (dur ? '<span class="duration">' + esc(dur) + '</span>' : '') + '</div>' +
     '<div class="bd"><p class="ti">' + esc(v.title) + '</p>' +
     '<p class="meta"><b>' + esc(v.ch || ch.title || '') + '</b> · ' + esc(age(v.date)) + '</p></div></a>';
@@ -188,6 +187,10 @@ function cardHtml(v) {
 var groups = D.groups || [];
 var videos = D.videos || [];
 var selectedGroup = 'all';
+var shownLimit = 24;
+var PAGE_SIZE = 24;
+var feedTotal = 0;
+var thumbPending = false;
 var categoryBar = document.getElementById('categories');
 var options = [['all','Όλα']].concat(groups);
 var navHtml = '';
@@ -198,6 +201,22 @@ for (var g = 0; g < options.length; g++) {
 categoryBar.innerHTML = navHtml;
 function categoryButtons() { return categoryBar.querySelectorAll('button'); }
 function activeCategory() { return categoryBar.querySelector('.active'); }
+function loadVisibleThumbs() {
+  thumbPending = false;
+  var images = document.getElementById('grid').querySelectorAll('img[data-src]');
+  var bottom = window.innerHeight + 300;
+  for (var i=0;i<images.length;i++) {
+    var img=images[i], r=img.getBoundingClientRect();
+    if (r.bottom >= -200 && r.top <= bottom) {
+      img.src=img.getAttribute('data-src');
+      img.removeAttribute('data-src');
+    }
+  }
+}
+function scheduleThumbs() {
+  if (thumbPending || !isOpen() || stageOpen()) return;
+  thumbPending=true; setTimeout(loadVisibleThumbs,60);
+}
 function renderFeed() {
   var buttons = categoryButtons();
   for (var i = 0; i < buttons.length; i++) {
@@ -205,41 +224,53 @@ function renderFeed() {
     buttons[i].className = active ? 'active' : '';
     buttons[i].setAttribute('aria-pressed', active ? 'true' : 'false');
   }
-  var html = '', known = {};
-  for (var g = 0; g < groups.length; g++) {
-    var gid = groups[g][0];
-    known[gid] = true;
-    if (selectedGroup !== 'all' && selectedGroup !== gid) continue;
-    var bucket = [];
-    for (var n = 0; n < videos.length; n++) {
-      var ch = chById[videos[n].chid] || {};
-      if (ch.group === gid) bucket.push(videos[n]);
+  var html='', known={}, buckets=[], total=0, left=shownLimit;
+  for (var g=0;g<groups.length;g++) {
+    var gid=groups[g][0];
+    known[gid]=true;
+    if (selectedGroup!=='all' && selectedGroup!==gid) continue;
+    var bucket=[];
+    for(var n=0;n<videos.length;n++) {
+      if ((chById[videos[n].chid]||{}).group===gid) bucket.push(videos[n]);
     }
-    if (!bucket.length) continue;
-    bucket.sort(rowSort);
-    html += '<section class="row"><h2>' + esc(groups[g][1]) + '</h2><div class="video-grid">';
-    for (var k = 0; k < bucket.length; k++) html += cardHtml(bucket[k]);
-    html += '</div></section>';
+    if (bucket.length) buckets.push([groups[g][1],bucket.sort(rowSort)]);
   }
-  if (selectedGroup === 'all') {
-    var other = videos.filter(function(v) { return !known[(chById[v.chid] || {}).group]; }).sort(rowSort);
-    if (other.length) {
-      html += '<section class="row"><h2>Άλλα</h2><div class="video-grid">';
-      for (var j = 0; j < other.length; j++) html += cardHtml(other[j]);
-      html += '</div></section>';
-    }
+  if (selectedGroup==='all') {
+    var other=videos.filter(function(v){return !known[(chById[v.chid]||{}).group];}).sort(rowSort);
+    if(other.length) buckets.push(['Άλλα',other]);
   }
-  document.getElementById('grid').innerHTML = html || '<p class="empty">Δεν υπάρχουν βίντεο.</p>';
+  for(var k=0;k<buckets.length;k++) {
+    var list=buckets[k][1];
+    total+=list.length;
+    if(left<=0) continue;
+    html+='<section class="row"><h2>'+esc(buckets[k][0])+'</h2><div class="video-grid">';
+    for(var j=0;j<list.length&&left>0;j++,left--) html+=cardHtml(list[j]);
+    html+='</div></section>';
+  }
+  feedTotal=total;
+  if(total>shownLimit) html+='<button type="button" class="more" id="moreVideos">Περισσότερα ('+Math.min(shownLimit,total)+' / '+total+')</button>';
+  document.getElementById('grid').innerHTML=html||'<p class="empty">Δεν υπάρχουν βίντεο.</p>';
+  loadVisibleThumbs();
 }
+function showMore() {
+  if(shownLimit>=feedTotal) return;
+  var oldCount=cards().length;
+  shownLimit+=PAGE_SIZE;
+  renderFeed();
+  var next=cards()[oldCount];
+  if(next) focusCard(next);
+}
+window.addEventListener('scroll',scheduleThumbs);
+window.addEventListener('resize',scheduleThumbs);
 categoryBar.addEventListener('click', function(e) {
   var t = e.target;
   if (!t || !t.getAttribute || t.getAttribute('data-group') === null) return;
   selectedGroup = t.getAttribute('data-group');
+  shownLimit = PAGE_SIZE;
   renderFeed();
   window.scrollTo(0,0);
   t.focus();
 });
-renderFeed();
 document.getElementById('gen').textContent = D.generated_label || '';
 
 var PIN_SHA = '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0';
@@ -325,7 +356,7 @@ function utf8bytes(text) {
   }
   return new Uint8Array(out);
 }
-function isOpen() { return document.documentElement.classList.contains('open'); }
+function isOpen() { return /(^|\s)open(\s|$)/.test(document.documentElement.className); }
 function paintPin() {
   var s = '';
   for (var i = 0; i < 4; i++) s += i < pin.length ? '●' : '·';
@@ -351,6 +382,7 @@ function submitPin() {
     if (hex === PIN_SHA) {
       try { localStorage.setItem('mif_tv_unlocked', '1'); } catch (e) {}
       document.documentElement.className = 'open';
+      renderFeed();
       var first = activeCategory();
       if (first) first.focus();
     } else pinFail();
@@ -436,6 +468,7 @@ function moveCard(dir) {
     if (d < score) { score = d; best = el; }
   }
   if (best) focusCard(best);
+  else if (dir === 40 && shownLimit < feedTotal) showMore();
   else if (dir === 38 && activeCategory()) { window.scrollTo(0,0); activeCategory().focus(); }
 }
 var returnCard = null, playerHistory = false;
@@ -443,7 +476,7 @@ var stage = document.getElementById('stage');
 var frame = document.getElementById('yt');
 var toolbar = document.getElementById('playerTools');
 var fullscreenButton = document.getElementById('playerFullscreen');
-function stageOpen() { return !stage.classList.contains('off'); }
+function stageOpen() { return stage && stage.className.indexOf('off') === -1; }
 function ytIdFrom(href) {
   var match = String(href || '').match(/[?&]v=([A-Za-z0-9_-]{11})(?:[&#]|$)/);
   return match ? match[1] : '';
@@ -477,13 +510,12 @@ function openPlayer(card) {
   var id = ytIdFrom(card.getAttribute('href') || card.href);
   if (!id) return;
   returnCard = card;
-  document.documentElement.classList.add('playing');
+  document.documentElement.className = 'open playing';
   stage.className = '';
   frame.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0&controls=1&fs=1&disablekb=0&playsinline=1';
   try { history.pushState({mifTVPlayer:true}, '', location.href); playerHistory = true; } catch(e) { playerHistory = false; }
   showTools();
   document.getElementById('playerControls').focus();
-  requestFullscreen();
 }
 function closePlayer(fromHistory) {
   if (!stageOpen()) return;
@@ -491,8 +523,9 @@ function closePlayer(fromHistory) {
   frame.src = 'about:blank';
   stage.className = 'off';
   hideTools();
-  document.documentElement.classList.remove('playing');
+  document.documentElement.className = 'open';
   if (returnCard) focusCard(returnCard);
+  scheduleThumbs();
   if (!fromHistory && playerHistory && history.state && history.state.mifTVPlayer) history.back();
   playerHistory = false;
 }
@@ -514,6 +547,7 @@ document.getElementById('playerExternal').addEventListener('click', function() {
   if (returnCard) { exitFullscreen(); location.replace(returnCard.href); }
 });
 document.getElementById('grid').addEventListener('click', function (e) {
+  if(e.target && e.target.id==='moreVideos'){showMore();return;}
   var a = e.target;
   while (a && a.tagName !== 'A') a = a.parentNode;
   if (!a || !a.getAttribute) return;
@@ -587,6 +621,7 @@ document.addEventListener('keydown', function (e) {
   }
 });
 if (isOpen()) {
+  renderFeed();
   var firstCard = activeCategory();
   if (firstCard) firstCard.focus();
 } else {
