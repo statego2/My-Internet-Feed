@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#161512">
 <title>__TITLE__</title>
+<script>
+try {
+  document.documentElement.className = localStorage.getItem('mif_tv_unlocked') === '1' ? 'open' : 'locked';
+} catch (e) {
+  document.documentElement.className = 'locked';
+}
+</script>
 <style>
 /*__FONTS__*/
 html,body{margin:0;background:#161512;color:#F6F6F3;
@@ -30,21 +37,54 @@ a.card:focus{outline:5px solid #C4A35A;outline-offset:6px;transform:scale(1.03);
 .meta{margin:0;color:#9A958C;font-size:22px;line-height:1.35;}
 .meta b{color:#F6F6F3;font-weight:600;}
 .empty{margin:0;padding:48px;color:#9A958C;font-size:28px;}
+html.locked #feed{display:none;}
+html.open #gate{display:none;}
+#gate{position:fixed;left:0;top:0;right:0;bottom:0;background:#161512;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.pin{margin:0 0 18px;font-size:28px;letter-spacing:0.28em;}
+.dots{margin:0 0 28px;min-height:36px;font-size:32px;letter-spacing:0.45em;color:#C4A35A;}
+#gate.bad .dots{color:#C4473A;}
+.keys{display:grid;grid-template-columns:repeat(3,140px);grid-gap:16px;}
+.keys button{height:108px;font:inherit;font-size:40px;color:#F6F6F3;background:#1C1A16;
+  border:0;border-radius:2px;cursor:pointer;}
+.keys button:focus{outline:5px solid #C4A35A;outline-offset:4px;transform:scale(1.04);}
 @media (max-width:1600px){
   .grid{grid-template-columns:repeat(3,1fr);grid-gap:22px;padding:22px 32px 48px;}
   header{padding:28px 32px 4px;}
   h1{font-size:36px;}
   .ti{font-size:26px;}
   .meta{font-size:20px;}
+  .keys{grid-template-columns:repeat(3,112px);grid-gap:12px;}
+  .keys button{height:88px;font-size:34px;}
 }
 </style>
 </head>
 <body>
+<div id="gate">
+  <p class="pin">PIN</p>
+  <p class="dots" id="dots">····</p>
+  <div class="keys" id="keys">
+    <button type="button" data-d="1">1</button>
+    <button type="button" data-d="2">2</button>
+    <button type="button" data-d="3">3</button>
+    <button type="button" data-d="4">4</button>
+    <button type="button" data-d="5">5</button>
+    <button type="button" data-d="6">6</button>
+    <button type="button" data-d="7">7</button>
+    <button type="button" data-d="8">8</button>
+    <button type="button" data-d="9">9</button>
+    <button type="button" data-act="del" aria-label="Διαγραφή">⌫</button>
+    <button type="button" data-d="0">0</button>
+    <button type="button" data-act="ok">OK</button>
+  </div>
+</div>
+<div id="feed">
 <header>
   <h1>__TITLE__</h1>
   <div class="gen" id="gen"></div>
 </header>
 <main class="grid" id="grid"></main>
+</div>
 <script id="d" type="application/json">/*__DATA__*/null</script>
 <script>
 var D = JSON.parse(document.getElementById('d').textContent.replace(/^\/\*__DATA__\*\//, ''));
@@ -70,7 +110,7 @@ function videoUrl(v) {
 function age(iso) {
   var t = new Date(iso).getTime();
   if (isNaN(t)) return '';
-  var mins = Math.round((Date.now() - t) / 60000);
+  var mins = Math.round((Date.now() - t) / (60 * 1000));
   if (mins < 1) return 'μόλις τώρα';
   if (mins < 60) return 'πριν από ' + mins + (mins === 1 ? ' λεπτό' : ' λεπτά');
   var hrs = Math.round(mins / 60);
@@ -106,13 +146,140 @@ for (var n = 0; n < list.length; n++) {
 document.getElementById('grid').innerHTML = html || '<p class="empty">Δεν υπάρχουν βίντεο.</p>';
 document.getElementById('gen').textContent = D.generated_label || '';
 
+var PIN_SHA = '9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0';
+var pin = '';
+var pinBusy = false;
+
+function sha256ascii(ascii) {
+  function rightRotate(value, amount) {
+    return (value >>> amount) | (value << (32 - amount));
+  }
+  var maxWord = Math.pow(2, 32);
+  var i, j, result = '', words = [], hash = [], k = [], primeCounter = 0, isComposite = {};
+  var bitLength = ascii.length * 8;
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (Math.pow(candidate, 0.5) * maxWord) | 0;
+      k[primeCounter++] = (Math.pow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii.length % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii.length; i++) {
+    j = ascii.charCodeAt(i);
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words.length] = (bitLength / maxWord) | 0;
+  words[words.length] = bitLength;
+  for (j = 0; j < words.length;) {
+    var w = words.slice(j, j += 16);
+    var oldHash = hash;
+    hash = hash.slice(0, 8);
+    for (i = 0; i < 64; i++) {
+      var w15 = w[i - 15], w2 = w[i - 2];
+      var a = hash[0], e = hash[4];
+      var temp1 = hash[7]
+        + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25))
+        + ((e & hash[5]) ^ ((~e) & hash[6]))
+        + k[i]
+        + (w[i] = (i < 16) ? w[i] : (
+            w[i - 16]
+            + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3))
+            + w[i - 7]
+            + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))
+          ) | 0);
+      var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22))
+        + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+  }
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j + 1; j--) {
+      var b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? '0' : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+function sha256hex(text) {
+  if (window.crypto && crypto.subtle && crypto.subtle.digest) {
+    var bytes;
+    try {
+      bytes = (window.TextEncoder ? new TextEncoder() : null);
+      var data = bytes ? bytes.encode(text) : utf8bytes(text);
+      return crypto.subtle.digest('SHA-256', data).then(function (buf) {
+        var u = new Uint8Array(buf), hex = '';
+        for (var i = 0; i < u.length; i++) hex += ((u[i] < 16) ? '0' : '') + u[i].toString(16);
+        return hex;
+      }, function () { return sha256ascii(text); });
+    } catch (e) {}
+  }
+  return Promise.resolve(sha256ascii(text));
+}
+function utf8bytes(text) {
+  var out = [];
+  for (var i = 0; i < text.length; i++) {
+    var c = text.charCodeAt(i);
+    if (c < 128) out.push(c);
+    else if (c < 2048) { out.push(192 | (c >> 6), 128 | (c & 63)); }
+    else { out.push(224 | (c >> 12), 128 | ((c >> 6) & 63), 128 | (c & 63)); }
+  }
+  return new Uint8Array(out);
+}
+function isOpen() { return document.documentElement.className === 'open'; }
+function paintPin() {
+  var s = '';
+  for (var i = 0; i < 4; i++) s += i < pin.length ? '●' : '·';
+  document.getElementById('dots').textContent = s;
+}
+function addDigit(d) {
+  if (pin.length >= 4) return;
+  pin += d;
+  paintPin();
+}
+function pinFail() {
+  pin = '';
+  paintPin();
+  var g = document.getElementById('gate');
+  g.className = 'bad';
+  setTimeout(function () { g.className = ''; }, 700);
+}
+function submitPin() {
+  if (pinBusy) return;
+  pinBusy = true;
+  sha256hex(pin).then(function (hex) {
+    pinBusy = false;
+    if (hex === PIN_SHA) {
+      try { localStorage.setItem('mif_tv_unlocked', '1'); } catch (e) {}
+      document.documentElement.className = 'open';
+      var first = cards()[0];
+      if (first) first.focus();
+    } else pinFail();
+  });
+}
+document.getElementById('keys').addEventListener('click', function (e) {
+  var t = e.target;
+  if (!t || !t.getAttribute) return;
+  var d = t.getAttribute('data-d');
+  if (d) addDigit(d);
+  else if (t.getAttribute('data-act') === 'del') { pin = pin.slice(0, -1); paintPin(); }
+  else if (t.getAttribute('data-act') === 'ok') submitPin();
+});
+
 function cards() {
   return document.querySelectorAll('a.card');
 }
-function move(dir) {
-  var all = cards();
+function keys() {
+  return document.querySelectorAll('#keys button');
+}
+function move(all, dir) {
   var cur = document.activeElement;
-  if (!cur || !cur.className || cur.className.indexOf('card') === -1) {
+  var inside = false;
+  for (var n = 0; n < all.length; n++) if (all[n] === cur) inside = true;
+  if (!inside) {
     if (all.length) all[0].focus();
     return;
   }
@@ -148,20 +315,47 @@ document.addEventListener('keydown', function (e) {
     else if (e.key === 'ArrowDown') code = 40;
     else if (e.key === 'Enter') code = 13;
   }
+  if (!isOpen()) {
+    var digit = -1;
+    if (code >= 48 && code <= 57) digit = code - 48;
+    else if (code >= 96 && code <= 105) digit = code - 96;
+    else if (!code && e.key && e.key.length === 1 && e.key >= '0' && e.key <= '9') digit = e.key;
+    if (digit !== -1 && digit !== '-1') {
+      e.preventDefault();
+      addDigit(String(digit));
+      return;
+    }
+    if (code >= 37 && code <= 40) {
+      e.preventDefault();
+      move(keys(), code);
+      return;
+    }
+    if (code === 13) {
+      e.preventDefault();
+      var cur = document.activeElement;
+      if (cur && cur.click) cur.click();
+    }
+    return;
+  }
   if (code >= 37 && code <= 40) {
     e.preventDefault();
-    move(code);
+    move(cards(), code);
     return;
   }
   if (code === 13) {
-    var cur = document.activeElement;
-    if (cur && cur.href && cur.className && cur.className.indexOf('card') !== -1) {
-      window.location.href = cur.href;
+    var card = document.activeElement;
+    if (card && card.href && card.className && card.className.indexOf('card') !== -1) {
+      window.location.href = card.href;
     }
   }
 });
-var first = cards()[0];
-if (first) first.focus();
+if (isOpen()) {
+  var firstCard = cards()[0];
+  if (firstCard) firstCard.focus();
+} else {
+  var firstKey = keys()[0];
+  if (firstKey) firstKey.focus();
+}
 </script>
 </body>
 </html>
