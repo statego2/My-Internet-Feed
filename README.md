@@ -6,8 +6,8 @@ Live site: https://statego2.github.io/My-Internet-Feed/
 
 ## Layout
 
-- `docs/` — built site, served by GitHub Pages
-- `site/` — the same build output
+- `docs/` — built site, served by GitHub Pages. `build.py` writes `index.html` and `data.json` here.
+- `site/` — an earlier copy of the same build, not updated by the refresh workflow
 - `build.py` — rebuilds the site from public YouTube RSS and one Rumble channel
 - `sos_mapping.csv` — channel list, groups, and SOS flags
 - `template.html`, `fonts-embed.css`, `brand/` — used by the builder
@@ -18,6 +18,8 @@ Live site: https://statego2.github.io/My-Internet-Feed/
 python3 build.py
 ```
 
-Python 3.9+ is enough for YouTube. The one Rumble channel needs `pip install playwright` and a Chrome/Chromium browser, because Cloudflare blocks plain HTTP. After a build, copy `site/` to `docs/` before publishing.
+Python 3.9+ is enough for YouTube. The one Rumble channel needs `pip install playwright` and a Chrome/Chromium browser, because Cloudflare blocks plain HTTP. If Rumble or any other single channel fails, that channel keeps its previous items from `data/last.json` or, on a fresh checkout, from `docs/data.json`.
 
-Seen and hidden state stays in the browser (`localStorage`) and is not synced between devices. There is no scheduled rebuild in this repository; refresh the list by running the builder and pushing an update.
+GitHub Actions (`.github/workflows/refresh.yml`) runs that build every 3 hours and on demand, then commits `docs/index.html` and `docs/data.json` to `main` only when they changed.
+
+Seen and hidden state stays in the browser (`localStorage`) and is not synced between devices.

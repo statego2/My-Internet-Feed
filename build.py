@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""My Internet Feed - builds the static site in ./site/ (index.html + data.json).
+"""My Internet Feed - builds the static site in ./docs/ (index.html + data.json).
 
-  python3 build.py                 # fetch everything fresh, rebuild site/
-  python3 build.py --offline       # rebuild HTML from data/last.json (no network)
+  python3 build.py                 # fetch everything fresh, rebuild docs/
+  python3 build.py --offline       # rebuild HTML from data/last.json or docs/data.json
   python3 build.py --days 14 --per 6
 
 Sources of truth:
   sos_mapping.csv   channel list (edit include/group/sos/filter columns)
   data/cache.json   video durations/short flags (immutable, speeds up reruns)
-  data/last.json    last successful fetch (also used as Rumble fallback)
+  data/last.json    last successful fetch (also used as a per-source fallback)
+  docs/data.json    published snapshot, used when data/last.json has nothing for a failed source
 Needs: Python 3.9+, stdlib only. Rumble needs `pip install playwright` + a Chrome/Chromium
 (optional: if it fails, last known Rumble videos are kept and marked stale).
+One channel failing does not drop the rest of the feed and does not fail the build.
 """
 import argparse, base64, csv, json, os, re, shutil, sys, time, html, urllib.request, urllib.error, urllib.parse
 from concurrent.futures import ThreadPoolExecutor
@@ -19,7 +21,7 @@ from zoneinfo import ZoneInfo
 import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SITE = os.path.join(HERE, 'site')
+SITE = os.path.join(HERE, 'docs')
 DATA = os.path.join(HERE, 'data')
 UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
 TITLE = 'My Internet Feed'
@@ -105,11 +107,15 @@ def fetch_yt(ch, days, per, cache):
     st, x = http('https://www.youtube.com/feeds/videos.xml?channel_id=' + ch['id'])
     if not x:
         return None, f"RSS HTTP {st}"
-    root = ET.fromstring(x)
+    try:
+        root = ET.fromstring(x)
+    except ET.ParseError:
+        return None, f"RSS parse error HTTP {st}"
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     minlen, tfilter = parse_filter(ch['filter'])
     author = root.findtext('a:author/a:name', default=ch['title'], namespaces=NS)
     vids = []
+    unresolved = 0
     for e in root.findall('a:entry', NS):
         vid = e.findtext('yt:videoId', namespaces=NS)
         title = e.findtext('a:title', namespaces=NS) or ''
@@ -119,7 +125,11 @@ def fetch_yt(ch, days, per, cache):
         if tfilter and tfilter not in title.lower():
             continue
         d = yt_details(vid, cache)
-        if not d or d['upcoming'] or d['short']:
+        # A bot wall returns HTTP 200 with no duration. That is a failure, not an empty channel.
+        if not d:
+            unresolved += 1
+            continue
+        if d['upcoming'] or d['short']:
             continue
         if d['len'] == 0 and not d['live']:
             continue
@@ -131,6 +141,8 @@ def fetch_yt(ch, days, per, cache):
                          thumb=f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'))
         if len(vids) >= per:
             break
+    if not vids and unresolved:
+        return None, f"video details unavailable ({unresolved})"
     return vids, None
 
 
@@ -183,10 +195,34 @@ def fetch_rumble(ch, days, per):
 
 
 # ---------------- build ----------------
+def published_snapshot():
+    """Feed currently served from docs/. Present on a fresh CI checkout; data/ is not."""
+    data = load_json(os.path.join(SITE, 'data.json'), None)
+    return data if isinstance(data, dict) else {}
+
+
+def load_last():
+    """Prefer the local cache, then the published docs/data.json snapshot."""
+    last = load_json(os.path.join(DATA, 'last.json'), None)
+    if isinstance(last, dict) and last.get('videos'):
+        return last
+    return published_snapshot()
+
+
+def videos_for(snapshot, chid):
+    if not isinstance(snapshot, dict):
+        return []
+    vids = snapshot.get('videos')
+    if not isinstance(vids, list):
+        return []
+    return [x for x in vids if isinstance(x, dict) and x.get('chid') == chid]
+
+
 def collect(args):
     chans = read_mapping()
     cache = load_json(os.path.join(DATA, 'cache.json'), {})
-    last = load_json(os.path.join(DATA, 'last.json'), {})
+    last = load_last()
+    published = published_snapshot()
     videos, errors, stale = [], [], []
 
     def job(ch):
@@ -207,7 +243,8 @@ def collect(args):
     for ch, v, err in results:
         if v is None:
             errors.append(f"{ch['title']}: {err}")
-            old = [x for x in last.get('videos', []) if x['chid'] == ch['id']]
+            # Keep this channel's last items. data/ is gitignored, so CI falls back to docs/data.json.
+            old = videos_for(last, ch['id']) or videos_for(published, ch['id'])
             if old:
                 videos += old
                 stale.append(ch['id'])
@@ -277,9 +314,12 @@ if __name__ == '__main__':
     ap.add_argument('--per', type=int, default=6)
     a = ap.parse_args()
     os.makedirs(DATA, exist_ok=True)
-    d = load_json(os.path.join(DATA, 'last.json'), None) if a.offline else collect(a)
-    if d is None:
-        sys.exit('no data/last.json; run without --offline')
+    if a.offline:
+        d = load_last()
+        if not d or not d.get('videos'):
+            sys.exit('no data/last.json or docs/data.json; run without --offline')
+    else:
+        d = collect(a)
     render(d)
     print(f"channels={len(d['channels'])} videos={len(d['videos'])} stale={d['stale']} errors={d['errors']}")
     print('built', os.path.join(SITE, 'index.html'))
