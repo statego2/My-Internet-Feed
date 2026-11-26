@@ -162,7 +162,7 @@ a.card{display:block;color:inherit;text-decoration:none;background:#1C1A16;
 a.card:focus{outline:5px solid #C4A35A;outline-offset:6px;transform:scale(1.03);}
 .thumb{position:relative;width:100%;padding-top:56.25%;background:#12110F;overflow:hidden;}
 .thumb img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;}
-.sos{position:absolute;left:12px;top:12px;background:#1B4F9C;color:#C4A35A;
+.sos{position:absolute;left:12px;top:12px;z-index:1;background:#1B4F9C;color:#C4A35A;
   font-size:16px;letter-spacing:0.14em;padding:4px 10px;}
 .bd{padding:16px 18px 20px;}
 .ti{margin:0 0 10px;font-family:"Source Serif 4","Source Serif Pro",Georgia,serif;
@@ -273,7 +273,7 @@ for (var n = 0; n < list.length; n++) {
   var ch = chById[v.chid] || {};
   var mark = ch.sos ? '<span class="sos">SOS</span>' : '';
   html += '<a class="card" href="' + esc(videoUrl(v)) + '">' +
-    '<div class="thumb">' + mark + '<img alt="" src="' + esc(thumb(v)) + '"></div>' +
+    '<div class="thumb"><img alt="" src="' + esc(thumb(v)) + '">' + mark + '</div>' +
     '<div class="bd"><p class="ti">' + esc(v.title) + '</p>' +
     '<p class="meta"><b>' + esc(v.ch || ch.title || '') + '</b> · ' + esc(age(v.date)) + '</p></div></a>';
 }
