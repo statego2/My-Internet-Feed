@@ -83,22 +83,92 @@ def parse_filter(f):
 
 
 # ---------------- YouTube ----------------
-def yt_details(vid, cache):
+def classify_yt(vid):
+    """A Shorts URL must positively resolve to a reel or a normal watch URL.
+    A block, consent screen, generic redirect or missing metadata is unknown."""
+    req = urllib.request.Request('https://www.youtube.com/shorts/' + vid,
+                                 headers={'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9',
+                                          'Cookie': 'CONSENT=YES+1; SOCS=CAI'})
+    try:
+        with urllib.request.build_opener(_NoRedirect).open(req, timeout=8) as res:
+            h = res.read().decode('utf8', 'replace')
+            if re.search(r'"reelWatchEndpoint"\s*:\s*\{\s*"videoId"\s*:\s*"' + re.escape(vid) + '"', h):
+                return True
+            if re.search(r'<link[^>]+rel="canonical"[^>]+href="https://www.youtube.com/shorts/' + re.escape(vid) + r'["?]', h):
+                return True
+    except urllib.error.HTTPError as e:
+        if 300 <= e.code < 400:
+            target = urllib.parse.urlsplit(urllib.parse.urljoin(req.full_url, e.headers.get('Location', '')))
+            if target.hostname in ('www.youtube.com', 'youtube.com') and target.path == '/watch' and urllib.parse.parse_qs(target.query).get('v') == [vid]:
+                return False
+    except Exception:
+        pass
+    return None
+
+
+def channel_videos(ch):
+    """Positive membership in YouTube's Videos tab (not the Shorts tab)."""
+    st, h = http('https://www.youtube.com/channel/' + ch['id'] + '/videos', timeout=10, retries=0)
+    if st != 200:
+        return {}
+    match = re.search(r'(?:var\s+ytInitialData\s*=|window\["ytInitialData"\]\s*=)\s*', h)
+    if not match:
+        return {}
+    try:
+        root, _ = json.JSONDecoder().raw_decode(h[match.end():])
+        tabs = root['contents']['twoColumnBrowseResultsRenderer']['tabs']
+    except (ValueError, KeyError, TypeError):
+        return {}
+    result = {}
+    def walk(node):
+        if isinstance(node, list):
+            for x in node:
+                walk(x)
+        elif isinstance(node, dict):
+            renderer = node.get('videoRenderer') or node.get('gridVideoRenderer')
+            if isinstance(renderer, dict) and renderer.get('videoId'):
+                vid = renderer['videoId']
+                length = renderer.get('lengthText', {})
+                label = length.get('simpleText') or ''.join(x.get('text', '') for x in length.get('runs', []))
+                duration = None
+                if re.fullmatch(r'\d+(?::\d{2}){1,2}', label):
+                    duration = 0
+                    for part in label.split(':'):
+                        duration = duration * 60 + int(part)
+                # Never interpret a reel/Shorts renderer as a normal video.
+                nav = renderer.get('navigationEndpoint', {})
+                if 'reelWatchEndpoint' not in nav:
+                    result[vid] = duration
+            for x in node.values():
+                walk(x)
+    for tab in tabs:
+        tr = tab.get('tabRenderer', {})
+        endpoint = tr.get('endpoint', {}).get('commandMetadata', {}).get('webCommandMetadata', {}).get('url', '')
+        if tr.get('selected') and (endpoint.rstrip('/').endswith('/videos') or tr.get('title') == 'Videos'):
+            walk(tr.get('content', {}))
+    return result
+
+
+def yt_details(vid, cache, regular=None):
     c = cache.get(vid)
-    if c and not c.get('live'):
+    if c and c.get('classification_verified') and not c.get('live') and c.get('len') is not None:
         return c
-    st, h = http('https://www.youtube.com/watch?v=' + vid)
+    regular = regular or {}
+    if vid in regular and regular[vid] is not None:
+        c = dict(len=regular[vid], live=False, upcoming=False, short=False, classification_verified=True)
+        cache[vid] = c
+        return c
+    st, h = http('https://www.youtube.com/watch?v=' + vid, timeout=8, retries=0)
     m = re.search(r'"lengthSeconds":"(\d+)"', h)
-    if not m:
-        return None
-    ln = int(m.group(1))
+    ln = int(m.group(1)) if m else None
     live = '"isLive":true' in h
     upcoming = '"isUpcoming":true' in h
-    short = False
-    if ln <= 185 and not live:
-        s, _ = http('https://www.youtube.com/shorts/' + vid, redirect=False)
-        short = (s == 200)
-    c = dict(len=ln, live=live, upcoming=upcoming, short=short)
+    short = False if vid in regular or live or (ln is not None and ln > 185) else classify_yt(vid)
+    if short is None and c and c.get('classification_verified'):
+        short = c['short']
+    if short is None:
+        return None
+    c = dict(len=ln, live=live, upcoming=upcoming, short=short, classification_verified=True)
     cache[vid] = c
     return c
 
@@ -117,6 +187,7 @@ def fetch_yt(ch, days, per, cache):
     vids = []
     unresolved = 0
     unverified = 0
+    regular = channel_videos(ch)
     for e in root.findall('a:entry', NS):
         vid = e.findtext('yt:videoId', namespaces=NS)
         title = e.findtext('a:title', namespaces=NS) or ''
@@ -125,16 +196,16 @@ def fetch_yt(ch, days, per, cache):
             continue
         if tfilter and tfilter not in title.lower():
             continue
-        d = yt_details(vid, cache)
-        # RSS is authoritative for published IDs and titles. A watch-page block
-        # must not discard an entire channel or invent video duration.
-        unknown = d is None
+        d = yt_details(vid, cache, regular)
+        if d is None or not d.get('classification_verified'):
+            unresolved += 1
+            continue
+        unknown = d['len'] is None
         if unknown:
             if minlen:
                 unresolved += 1
                 continue
             unverified += 1
-            d = dict(len=None, live=False, upcoming=False, short=False)
         if d['upcoming'] or d['short']:
             continue
         if d['len'] == 0 and not d['live']:
@@ -143,12 +214,12 @@ def fetch_yt(ch, days, per, cache):
             continue
         vids.append(dict(id='yt:' + vid, title=title, ch=ch['title'], chid=ch['id'], platform='youtube',
                          date=pub.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'), dur=d['len'],
-                         live=d['live'], metadata_pending=unknown, url='https://www.youtube.com/watch?v=' + vid,
+                         live=d['live'], metadata_pending=unknown, classification_verified=True, url='https://www.youtube.com/watch?v=' + vid,
                          thumb=f'https://i.ytimg.com/vi/{vid}/mqdefault.jpg'))
         if len(vids) >= per:
             break
-    if not vids and unresolved:
-        return None, f"video details unavailable ({unresolved})"
+    if unresolved:
+        return vids, f"classification pending ({unresolved} withheld, {unverified} without duration)"
     return vids, (f"metadata pending ({unverified} unverified, {unresolved} filtered)" if unverified or unresolved else None)
 
 
@@ -171,10 +242,19 @@ def fetch_rumble(ch, days, per):
         if not b:
             raise RuntimeError('no browser')
         pg = b.new_page(user_agent=UA)
-        pg.goto(f"https://rumble.com/c/{ch['id']}/videos", wait_until='domcontentloaded')
-        pg.wait_for_timeout(6000)
-        h = pg.content()
-        b.close()
+        h = ''
+        try:
+            for path in ('/videos', ''):
+                try:
+                    pg.goto(f"https://rumble.com/c/{ch['id']}{path}", wait_until='domcontentloaded', timeout=15000)
+                    pg.wait_for_selector('rum-card-video', timeout=8000)
+                    h = pg.content()
+                    if 'video-title=' in h:
+                        break
+                except Exception:
+                    continue
+        finally:
+            b.close()
     items = []
     for m in re.finditer(r'<rum-card-video\b([^>]*)>', h):
         a = dict(re.findall(r'([\w-]+)="([^"]*)"', m.group(1)))
@@ -308,8 +388,8 @@ def collect(args):
     videos, errors, stale, warnings = [], [], [], []
     # Preserve metadata of previously verified videos, even on a fresh CI runner.
     for item in published.get('videos', []):
-        if item.get('platform') == 'youtube' and item.get('dur') and not item.get('metadata_pending') and not item.get('live'):
-            cache.setdefault(item['id'][3:], dict(len=item['dur'], live=False, upcoming=False, short=False))
+        if item.get('platform') == 'youtube' and not item.get('live') and (item.get('classification_verified') or (item.get('dur') or 0) > 185):
+            cache.setdefault(item['id'][3:], dict(len=item.get('dur'), live=False, upcoming=False, short=False, classification_verified=True))
 
     def job(ch):
         try:
@@ -333,7 +413,8 @@ def collect(args):
             old = videos_for(last, ch['id']) or videos_for(published, ch['id'])
             stale.append(ch['id'])
             if old:
-                videos += old
+                cutoff = datetime.now(timezone.utc) - timedelta(days=args.days)
+                videos += [x for x in old if (x.get('platform') != 'youtube' or x.get('classification_verified') or (x.get('dur') or 0) > 185 or x.get('live')) and datetime.fromisoformat(x['date'].replace('Z', '+00:00')) >= cutoff]
             continue
         if err:
             warnings.append(f"{ch['title']}: {err}")
@@ -403,6 +484,7 @@ def render_tv(blob, fonts):
     tv_data = {
         'groups': data.get('groups', []),
         'generated_label': data.get('generated_label', ''),
+        'generated': data.get('generated', ''),
         'channels': [{k: c[k] for k in ('id', 'group', 'sos', 'title') if k in c}
                      for c in data.get('channels', [])],
         'videos': [],

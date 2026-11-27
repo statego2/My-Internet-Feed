@@ -391,7 +391,8 @@ function useFeed(next){
     const pending=(D.videos||[]).filter(v=>v.metadata_pending).length;
     g.textContent='Τελευταίος έλεγχος '+(D.generated_label||'')+
       (failed?' · '+failed+' πηγές με σφάλμα':'')+
-      (pending?' · '+pending+' χωρίς διάρκεια':'');
+      (pending?' · '+pending+' χωρίς διάρκεια':'') +
+      (D.generated && Date.now()-Date.parse(D.generated)>60*60*1000?' · καθυστερημένη συλλογή':'');
     g.title=[...(D.errors||[]),...(D.warnings||[])].join('\n');
   }
 }
@@ -476,13 +477,18 @@ async function refreshFeed(manual){
     if(!res.ok) throw new Error(String(res.status));
     const next=await res.json();
     if(!next||!Array.isArray(next.videos)||!Array.isArray(next.channels)) throw new Error('bad');
-    if(next.generated!==D.generated){
+    const changed=next.generated!==D.generated;
+    if(changed){
       const y=window.scrollY;
       useFeed(next);
       render();
       window.scrollTo(0,y);
     }
     useFeed(next);
+    if(manual && !changed){
+      const g=document.getElementById('gen');
+      if(g) g.append(' · Δεν υπάρχουν νεότερα δεδομένα. ', Object.assign(document.createElement('a'),{href:'https://github.com/statego2/My-Internet-Feed/actions/workflows/refresh.yml',target:'_blank',rel:'noopener',textContent:'Νέα συλλογή ↗'}));
+    }
     lastRefreshAt=Date.now();
     syncNow();
   }catch(e){
@@ -496,7 +502,7 @@ async function refreshFeed(manual){
 document.getElementById('refreshBtn').addEventListener('click',()=>refreshFeed(true));
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refreshFeed(false); });
 window.addEventListener('pageshow',e=>{ if(e.persisted) refreshFeed(false); });
-window.addEventListener('online',()=>refreshFeed(true));
+window.addEventListener('online',()=>refreshFeed(false));
 setInterval(()=>{if(document.visibilityState==='visible') refreshFeed(false);},REFRESH_MS);
 refreshFeed(false);
 

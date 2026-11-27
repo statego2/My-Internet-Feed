@@ -1,10 +1,10 @@
-# Rebuild the GitHub Pages site (branch main, folder /docs) every 30 minutes.
+# Multiple off-hour schedule opportunities; skip redundant recent builds.
 # One failed source does not fail the job: build.py keeps that channel's previous items.
 name: refresh-feed
 
 on:
   schedule:
-    - cron: "17,47 * * * *"
+    - cron: "7,17,27,37,47,57 * * * *"
   workflow_dispatch:
   push:
     branches: [main]
@@ -12,6 +12,7 @@ on:
       - '.github/workflows/refresh.yml'
       - 'build.py'
       - 'template.html'
+      - 'template_tv.html'
       - 'test_feed.py'
 
 permissions:
@@ -34,15 +35,34 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Check freshness
+        id: fresh
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          python3 - <<'PY'
+          import os, json
+          from datetime import datetime, timezone
+          try:
+              stamp = datetime.fromisoformat(json.load(open('docs/data.json'))['generated'].replace('Z', '+00:00'))
+              fresh = (datetime.now(timezone.utc)-stamp).total_seconds() < 25*60
+          except Exception:
+              fresh = False
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              print('skip=' + str(os.environ['EVENT']=='schedule' and fresh).lower(), file=f)
+          PY
       - name: Test RSS fallback
         run: python3 -m unittest test_feed
       - name: Install Playwright and Chromium
+        if: steps.fresh.outputs.skip != 'true'
         run: pip install playwright && playwright install --with-deps chromium
 
       - name: Build feed
+        if: steps.fresh.outputs.skip != 'true'
         run: python3 build.py
 
       - name: Commit and push when the feed changed
+        if: steps.fresh.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

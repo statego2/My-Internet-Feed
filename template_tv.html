@@ -595,6 +595,7 @@ function closePlayer(fromHistory) {
   scheduleThumbs();
   if (!fromHistory && playerHistory && history.state && history.state.mifTVPlayer) history.back();
   playerHistory = false;
+  if(typeof applyTV==='function') applyTV();
 }
 window.addEventListener('popstate', function() { if (stageOpen()) closePlayer(true); });
 document.getElementById('revealTools').addEventListener('click', function() {
@@ -687,6 +688,46 @@ document.addEventListener('keydown', function (e) {
     }
   }
 });
+// Poll the published snapshot without interrupting playback or the PIN screen.
+var pendingTV = null, tvBusy = false;
+function applyTV() {
+  if(!pendingTV || !isOpen() || stageOpen()) return;
+  var next = pendingTV; pendingTV = null;
+  var old = document.activeElement, href = old && old.getAttribute && old.getAttribute('href');
+  var y = window.pageYOffset || 0;
+  D = next; channels = D.channels; videos = D.videos; chById = {};
+  for(var n=0;n<channels.length;n++) chById[channels[n].id]=channels[n];
+  document.getElementById('gen').textContent = D.generated_label || '';
+  renderFeed(); window.scrollTo(0,y);
+  if(href) {
+    var all=cards();
+    for(var j=0;j<all.length;j++) if(all[j].getAttribute('href')===href){all[j].focus();return;}
+  }
+  if(activeCategory()) activeCategory().focus();
+}
+function refreshTV() {
+  applyTV();
+  if(tvBusy || document.hidden) return;
+  tvBusy=true;
+  var xhr=new XMLHttpRequest();
+  xhr.open('GET','../data.json?t='+Date.now(),true);
+  xhr.timeout=15000;
+  xhr.onload=function(){
+    tvBusy=false;
+    if(xhr.status!==200) return;
+    try {
+      var next=JSON.parse(xhr.responseText);
+      if(next.generated && next.generated!==D.generated && Array.isArray(next.videos) && Array.isArray(next.channels)){
+        pendingTV=next; applyTV();
+      }
+    } catch(e){}
+  };
+  xhr.onerror=xhr.ontimeout=function(){tvBusy=false;};
+  xhr.send();
+}
+setInterval(refreshTV,5*60*1000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden) refreshTV();});
+window.addEventListener('online',refreshTV);
 if (isOpen()) {
   renderFeed();
   var firstCard = activeCategory();
